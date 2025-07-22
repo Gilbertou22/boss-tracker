@@ -1,0 +1,13 @@
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.ant-layout-header {
+    position: fixed !important; /* 確保固定 */
+    top: 0 !important; /* 固定在頂部 */
+    width: 100% !important; /* 佔滿螢幕寬度 */
+    z-index: 1000 !important; /* 確保層級最高 */
+}
