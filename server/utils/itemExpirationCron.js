@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 
 const startItemExpirationCron = () => {
     try {
-       
+        console.log('Starting item expiration cron job...');
         if (!cron) {
             console.error('node-cron is not available');
             return false;
@@ -13,7 +13,7 @@ const startItemExpirationCron = () => {
         // 每小時檢查一次（可根據需求調整）
         const task = cron.schedule('0 * * * *', async () => {
             try {
-           
+                console.log('Running item expiration check at:', new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }));
 
                 // 查找所有未分配且過期的 BossKill 記錄
                 const now = new Date();

@@ -125,7 +125,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 
         // 將 req.params.id 轉換為 ObjectId
         const bossId = new mongoose.Types.ObjectId(req.params.id);
-
+        
         // 檢查是否在 BossKill 表中存在相關記錄
         const bossKillRecords = await BossKill.find({ bossId: bossId });
         if (bossKillRecords.length > 0) {

@@ -1,3 +1,4 @@
+import 'antd/dist/reset.css';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Register from './pages/Register';
 import BossKillForm from './pages/BossKillForm';
@@ -40,6 +41,8 @@ import VoteResults from './components/VoteResults';
 import VotePage from './components/VotePage';
 import DiamondCalculator from './components/DiamondCalculator';
 import DiscordMessageSender from './pages/DCMsgSender';
+import SearchPage from './pages/SearchPage';
+
 
 const { Content, Footer } = Layout;
 const { Text } = Typography;
@@ -109,6 +112,14 @@ function App() {
                                             element={
                                                 <RoleRoute allowedRoles={['user', 'moderator', 'admin']}>
                                                     <UserRecords />
+                                                </RoleRoute>
+                                            }
+                                        />
+                                        <Route
+                                            path="/search"
+                                            element={
+                                                <RoleRoute allowedRoles={['admin']}>
+                                                    <SearchPage />
                                                 </RoleRoute>
                                             }
                                         />

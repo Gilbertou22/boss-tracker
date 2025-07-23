@@ -230,6 +230,14 @@ router.get('/', auth, async (req, res) => {
             query.discord_id = { $exists: true, $ne: null };
         }
 
+        if (req.query.guildId) {
+            if (currentUser.roles.includes('admin') || req.query.guildId === currentUserData.guildId?.toString()) {
+                query.guildId = req.query.guildId;
+            } else {
+                return res.status(403).json({ msg: '無權訪問其他旅團用戶' });
+            }
+        }
+
         // 支持 keyword 搜索（character_name 或 discord_id）
         if (req.query.keyword) {
             query.$or = [

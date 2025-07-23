@@ -124,22 +124,34 @@ router.post('/login', async (req, res) => {
     const { character_name, password, captcha_input } = req.body;
 
     try {
+        const isBot = req.headers['x-bot-auth'] === process.env.BOT_SECRET;
+        console.log('isBot:', isBot);
         // 驗證必填字段
-        if (!character_name || !password) {
+        if (!character_name) {
             return res.status(400).json({
                 code: 400,
                 msg: '缺少必填字段',
-                detail: '請提供 character_name 和 password',
+                detail: '請提供 character_name',
             });
         }
 
-        // CAPTCHA 已在前端驗證，這裡僅記錄
-        if (!captcha_input) {
+        if (!isBot && !password) {
             return res.status(400).json({
                 code: 400,
-                msg: '驗證碼缺失',
-                detail: '請輸入驗證碼',
+                msg: '缺少必填字段',
+                detail: '請提供 password',
             });
+        }
+
+        if (!isBot) {
+            // 正常用戶請求，檢查 CAPTCHA
+            if (!captcha_input) {
+                return res.status(400).json({
+                    code: 400,
+                    msg: '驗證碼缺失',
+                    detail: '請輸入驗證碼',
+                });
+            }
         }
 
         const user = await User.findOne({ character_name })
@@ -152,7 +164,10 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        let isMatch = true;
+        if (!isBot) {
+            isMatch = await bcrypt.compare(password, user.password);
+        }
         if (!isMatch) {
             return res.status(400).json({
                 code: 400,

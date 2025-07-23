@@ -9,6 +9,8 @@ const startAuctionCron = require('./utils/auctionCron');
 const startItemExpirationCron = require('./utils/itemExpirationCron'); // 新增
 const startDisabledUserCron = require('./utils/disabledUserCron'); // 新增
 const checkVoteStatus = require('./utils/voteCron');
+const axios = require('axios');
+const fs = require('fs');
 const cors = require('cors');
 const csurf = require('csurf');
 const multer = require('multer');
@@ -32,7 +34,7 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'x-auth-token'],
+    allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
     credentials: true,
 }));
 
@@ -49,7 +51,8 @@ app.get('/csrf-token', csrfProtection, (req, res) => {
 });
 
 // 在檔案開頭添加依賴
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, InteractionResponseFlags } = require('discord.js');  // 添加 InteractionResponseFlags
+
 require('dotenv').config();
 
 // 在 connectDB() 之後初始化 Discord BOT
@@ -68,6 +71,197 @@ discordClient.once('ready', () => {
 
 // 將 discordClient 傳遞給路由
 app.set('discordClient', discordClient); // 使 discordClient 可在路由中訪問
+
+// 新增：載入斜線命令
+discordClient.commands = new Collection();
+
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    discordClient.commands.set(command.data.name, command);
+}
+
+// 新增：處理交互事件（斜線命令和按鈕/模態）
+discordClient.on(Events.InteractionCreate, async interaction => {
+    if (interaction.isChatInputCommand()) {
+        const command = discordClient.commands.get(interaction.commandName);
+        if (!command) {
+            console.error(`No command matching ${interaction.commandName} was found.`);
+            return;
+        }
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: '執行命令時發生錯誤！', flags: [64] });
+            } else {
+                await interaction.reply({ content: '執行命令時發生錯誤！', flags: [64] });
+            }
+        }
+    } else if (interaction.isButton()) {
+        try {
+            // 處理按鈕點擊
+            const parts = interaction.customId.split('_');
+            if (parts.length < 3) {
+                return interaction.reply({ content: '無效的按鈕 ID', flags: [64] });
+            }
+            const action = parts[0] + '_' + parts[1];
+            const killId = parts[2];
+            const itemId = parts[3];
+
+            console.log(`Button clicked: ${interaction.customId}, action: ${action}, killId: ${killId}, itemId: ${itemId}`);
+
+            if (action === 'apply_item' && itemId) {
+                console.log(`Applying item: ${itemId} for kill: ${killId}`);
+                // 彈出模態讓用戶確認申請特定物品
+                const modal = new ModalBuilder()
+                    .setCustomId(`apply_modal_${killId}_${itemId}`)
+                    .setTitle('申請物品確認');
+
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('reason')
+                    .setLabel('輸入申請理由（可選）')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(false);
+
+                const captchaInput = new TextInputBuilder()
+                    .setCustomId('captcha')
+                    .setLabel('輸入驗證碼（請檢查網站或頻道公告）')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true);
+
+                const row1 = new ActionRowBuilder().addComponents(reasonInput);
+                const row2 = new ActionRowBuilder().addComponents(captchaInput);
+                modal.addComponents(row1, row2);
+
+                await interaction.showModal(modal);
+            } else if (action === 'add_attendee' && killId) {
+                // 彈出模態讓用戶補登申請
+                const modal = new ModalBuilder()
+                    .setCustomId(`add_attendee_modal_${killId}`)
+                    .setTitle('補登申請');
+
+                const reasonInput = new TextInputBuilder()
+                    .setCustomId('reason')
+                    .setLabel('輸入補登理由和證明')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true);
+
+                const row = new ActionRowBuilder().addComponents(reasonInput);
+                modal.addComponents(row);
+
+                await interaction.showModal(modal);
+            } else {
+                await interaction.reply({ content: '無效的按鈕動作', flags: [64] });
+            }
+        } catch (err) {
+            console.error('Button interaction error:', err);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: '處理按鈕點擊失敗，請重試。', flags: [64] });
+            } else if (interaction.deferred) {
+                await interaction.editReply({ content: '處理按鈕點擊失敗，請重試。' });
+            }
+        }
+    } else if (interaction.isModalSubmit()) {
+        try {
+            await interaction.deferReply({ flags: [64] });
+            // 處理模態提交
+            const parts = interaction.customId.split('_');
+            if (parts.length < 3) {
+                return interaction.editReply({ content: '無效的模態 ID' });
+            }
+            const modalType = parts[0];
+            const modalSubType = parts[1];
+            const killId = parts[2];
+            const itemId = parts[3];
+
+            if (modalType === 'apply' && modalSubType === 'modal' && killId && itemId) {
+                const reason = interaction.fields.getTextInputValue('reason') || '';
+                const captcha = interaction.fields.getTextInputValue('captcha');
+
+                // 驗證用戶 Discord ID
+                const userDiscordId = interaction.user.id;
+                const User = require('./models/User');
+                const user = await User.findOne({ discord_id: userDiscordId });
+                if (!user) {
+                    return interaction.editReply({ content: '未找到綁定帳號，請先綁定 Discord ID' });
+                }
+
+                // 驗證擊殺記錄和物品
+                const BossKill = require('./models/BossKill');
+                const kill = await BossKill.findById(killId);
+                if (!kill) {
+                    return interaction.editReply({ content: '無效擊殺記錄' });
+                }
+                const item = kill.dropped_items.find(i => i._id.toString() === itemId);
+                if (!item) {
+                    return interaction.editReply({ content: '無效物品' });
+                }
+
+                // 模擬用戶登錄以獲取 JWT token（假設 /api/auth/login 存在）
+                const apiUrl = process.env.API_URL || 'http://localhost:5000';
+                
+                const loginRes = await axios.post(`${apiUrl}/api/auth/login`, {
+                    character_name: user.character_name,
+                    password: captcha // 需要配置安全的默認密碼或改進
+                }, {
+                    headers: {
+                            'x-bot-auth': process.env.BOT_SECRET || '2281' 
+                    }
+                });
+                const userToken = loginRes.data.token;
+
+                // 提交申請
+                const res = await axios.post(`${apiUrl}/api/applications`, {
+                    kill_id: killId,
+                    item_id: itemId,
+                    item_name: item.name,
+                    reason: reason,
+                    captcha: captcha // 包含驗證碼
+                }, {
+                    headers: {
+                        'x-auth-token': userToken,
+                        'x-bot-auth': 'true' // 添加 bot 標識
+                    }
+                });
+
+                await interaction.editReply({ content: '申請提交成功！' });
+            } else if (modalType === 'add' && modalSubType === 'attendee' && killId) {
+                const reason = interaction.fields.getTextInputValue('reason');
+
+                // 驗證用戶 Discord ID
+                const userDiscordId = interaction.user.id;
+                const User = require('./models/User');
+                const user = await User.findOne({ discord_id: userDiscordId });
+                if (!user) {
+                    return interaction.editReply({ content: '未找到綁定帳號，請先綁定 Discord ID' });
+                }
+
+                // 提交補登申請
+                const apiUrl = process.env.API_URL || 'http://localhost:5000';
+                const res = await axios.post(`${apiUrl}/api/attendees/add-request`, {
+                    kill_id: killId,
+                    reason,
+                    discord_id: userDiscordId,
+                    character_name: user.character_name
+                }, { headers: { 'x-auth-token': process.env.BOT_TOKEN } });
+
+                await interaction.editReply({ content: '補登申請提交成功，等待審核！' });
+            } else {
+                await interaction.editReply({ content: '無效的模態提交' });
+            }
+        } catch (err) {
+            console.error('Modal submit error:', err);
+            await interaction.editReply({ content: `操作失敗: ${err.message}` });
+        }
+    }
+});
+// 啟動 BOT
+discordClient.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
+    console.error('Discord BOT login error:', err);
+});
 
 // 啟動 BOT
 discordClient.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
@@ -97,7 +291,7 @@ const upload = multer({
 
 
 // 確保 uploads/icons 目錄存在
-const fs = require('fs');
+
 if (!fs.existsSync('./uploads/icons')) {
     fs.mkdirSync('./uploads/icons', { recursive: true });
 }
@@ -199,6 +393,8 @@ app.use('/api/roles', require('./routes/roles'));
 console.log('Roles route loaded');
 app.use('/api/votes', require('./routes/votes'));
 console.log('Votes route loaded');
+app.use('/api/search', require('./routes/search'));
+console.log('Search route loaded');
 
 try {
     startAuctionCron();

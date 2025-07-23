@@ -345,8 +345,8 @@ const BossKillForm = () => {
 
             const headerLine = lines[0];
             const contentLine = lines[1];
-            const headers = headerLine.split(/[\t\s]{2,}/).map(h => h.trim());
-            const contents = contentLine.split(/[\t\s]{2,}/).map(c => c.trim());
+            const headers = headerLine.split(/[\t\s]+/).map(h => h.trim());
+            const contents = contentLine.split(/[\t\s]+/).map(c => c.trim());
 
             if (headers.length !== contents.length) {
                 message.error(`日誌格式錯誤：表頭字段數 (${headers.length}) 與內容字段數 (${contents.length}) 不一致`);
@@ -423,22 +423,31 @@ const BossKillForm = () => {
                 const itemsLines = lines.slice(itemsStartIndex + 1);
                 const droppedItems = itemsLines
                     .map(line => {
-                        const parts = line.split(/[\t\s]{2,}/).map(part => part.trim());
+                        // Split on tab or multiple spaces before the quantity
+                        const parts = line.split(/[\t\s]+(?=\d+個)/).map(part => part.trim());
                         if (parts.length >= 2) {
-                            const itemName = parts[0].split(' (拾取:')[0];
+                            const itemName = parts[0]; // Keep the full item name, including (拾取: ...)
                             return itemName;
                         }
                         return null;
                     })
                     .filter(item => item);
                 const validItems = droppedItems
-                    .map(itemName => items.find(item => item.name === itemName))
+                    .map(itemName => {
+                        // Normalize item names for comparison (replace en dash with hyphen)
+                        const normalizedItemName = itemName.replace(/–/g, '-').trim();
+                        return items.find(item =>
+                            item.name.replace(/–/g, '-').trim() === normalizedItemName
+                        );
+                    })
                     .filter(item => item)
                     .map(item => ({ name: item.name }));
                 if (validItems.length > 0) {
                     form.setFieldsValue({ item_names: validItems });
+                    message.success(`成功解析 ${validItems.length} 個戰利品`);
                 } else {
-                    message.warning('未找到有效的戰利品，請手動選擇');
+                    message.warning('未找到有效的戰利品，請檢查物品名稱或手動選擇');
+                    logger.warn('No valid items found', { droppedItems, items });
                 }
             }
 
@@ -448,7 +457,7 @@ const BossKillForm = () => {
             logger.error('Parse log failed', { error: err.message, stack: err.stack });
         }
     };
-
+    
     const onFinish = (values) => {
         if (values.item_names && values.item_names.length > 0) {
             setFormValues(values);
@@ -676,7 +685,7 @@ const BossKillForm = () => {
                                     rows={6}
                                     value={logText}
                                     onChange={(e) => setLogText(e.target.value)}
-                                    placeholder="請貼上旅團日誌內容，例如：\n消滅時間 2025.07.13-21:47:21\n首領 以太巨神\n戰鬥參與者\n玩家1\n玩家2\n玩家3\n分配方式 旅團部隊長獲得(傳說)\n戰利品 深淵藤蔓 - 傳說亞奎殞片"
+                                    placeholder="請貼上旅團日誌內容"
                                 />
                                 <Button type="primary" onClick={parseLogAndFillForm}>
                                     解析並填寫表單

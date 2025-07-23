@@ -15,13 +15,76 @@ const multer = require('multer');
 const { auth, adminOnly } = require('../middleware/auth');
 const logger = require('../logger');
 const moment = require('moment');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 
 const upload = multer({
     storage: multer.diskStorage({
         destination: './Uploads/',
-        filename: (req, file, cb) => cb(null, `${ Date.now() } -${ file.originalname } `),
+        filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
     }),
     limits: { fileSize: 600 * 1024 },
+});
+
+// Get attendance stats for a guild (past 2 weeks)
+router.get('/attendance/:guildId', auth, async (req, res) => {
+    try {
+        const { guildId } = req.params;
+
+        // Validate guild exists
+        const guild = await Guild.findById(guildId);
+        if (!guild) {
+            return res.status(404).json({
+                code: 404,
+                msg: 'Guild not found',
+                suggestion: 'Check if the guildId is valid'
+            });
+        }
+
+        // Get active users in the guild
+        const users = await User.find({ guildId, status: 'active' }).select('character_name').lean();
+        const characterNames = users.map(u => u.character_name);
+
+        // Calculate past 2 weeks from current date
+        const now = new Date();
+        const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const bossKills = await BossKill.find({
+            kill_time: { $gte: twoWeeksAgo }
+        }).select('attendees').lean();
+
+        const totalKills = bossKills.length;
+
+        // Build attendance map
+        const attendanceMap = {};
+        characterNames.forEach(name => {
+            attendanceMap[name] = 0;
+        });
+
+        bossKills.forEach(kill => {
+            kill.attendees.forEach(attendee => {
+                if (attendanceMap.hasOwnProperty(attendee)) {
+                    attendanceMap[attendee]++;
+                }
+            });
+        });
+
+        // Format response
+        const attendance = Object.keys(attendanceMap).map(name => ({
+            character_name: name,
+            attendanceCount: attendanceMap[name],
+            attendanceRate: totalKills > 0 ? attendanceMap[name] / totalKills : 0
+        }));
+
+        logger.info('Fetched attendance stats', { guildId, totalKills, userCount: characterNames.length });
+        res.json({ attendance });
+    } catch (err) {
+        logger.error('Error fetching attendance', { guildId: req.params.guildId, error: err.message, stack: err.stack });
+        res.status(500).json({
+            code: 500,
+            msg: '獲取出席數據失敗',
+            detail: err.message || '伺服器處理錯誤',
+            suggestion: '請稍後重試或聯繫管理員。'
+        });
+    }
 });
 
 // 創建擊殺記錄
@@ -46,7 +109,7 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
             if (!itemDoc || !itemDoc.level) {
                 return res.status(400).json({
                     code: 400,
-                    msg: `物品 ${ item.name } 未找到或未定義等級`,
+                    msg: `物品 ${item.name} 未找到或未定義等級`,
                     suggestion: '請確保物品存在於 Item 表中且已設置等級',
                 });
             }
@@ -82,11 +145,11 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
             });
         }
 
-        // 修改：創建單一 BossKill 記錄，包含所有 dropped_items
+        // 創建單一 BossKill 記錄，包含所有 dropped_items
         const bossKill = new BossKill({
             bossId,
             kill_time,
-            dropped_items: items,  // 直接使用所有 items
+            dropped_items: items,
             attendees: parsedAttendees,
             screenshots: [screenshot],
             final_recipient: final_recipient || null,
@@ -98,46 +161,87 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
 
         const results = [{ kill_id: bossKill._id }];
 
-        // Send logText to Discord channel after all items are processed
-        if (logText) {
+        // 檢查是否啟用 Discord 訊息發送
+        if (logText && process.env.SEND_DISCORD_MESSAGE === 'true') {
             const discordClient = req.app.get('discordClient');
             const channelId = process.env.DISCORD_BOSS_KILL_CHANNEL_ID || '1359700987539099799';
             if (discordClient && channelId) {
                 try {
                     const channel = await discordClient.channels.fetch(channelId);
                     if (channel) {
+                        let formattedLogText = logText;
                         if (logText.length > 1990) {
-                            logText = logText.substring(0, 1990) + '...';
+                            formattedLogText = logText.substring(0, 1990) + '...';
                             logger.warn('logText truncated to fit Discord message limit');
                         }
-                        const formattedMessage = `** 新的首領消滅記錄 **\n\`\`\`\n${logText}\n\`\`\``;
-await channel.send(formattedMessage);
-logger.info(`Discord message sent to channel ${channelId} with boss kill log`);
+
+                        // 創建嵌入消息
+                        const embed = new EmbedBuilder()
+                            .setColor(0x00FFFF)
+                            .setTitle('新的首領消滅記錄')
+                            .setDescription(`\`\`\`\n${formattedLogText}\n\`\`\``)
+                            .addFields(
+                                { name: '首領', value: boss.name || '未知', inline: true },
+                                { name: '擊殺時間', value: moment(kill_time).format('YYYY-MM-DD HH:mm'), inline: true },
+                                { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
+                            )
+                            .setTimestamp(new Date(kill_time))
+                            .setFooter({ text: '點擊物品按鈕進行申請或補登' });
+
+                        // 動態生成掉落物品字段，並在每個物品名稱後準備按鈕
+                        const components = [];
+                        let currentRow = new ActionRowBuilder();
+                        items.forEach((item, index) => {
+                            embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+
+                            const button = new ButtonBuilder()
+                                .setCustomId(`apply_item_${bossKill._id}_${item._id.toString()}`)
+                                .setLabel(`申請 ${item.name}`)
+                                .setStyle(ButtonStyle.Primary);
+
+                            currentRow.addComponents(button);
+
+                            // 每行最多5個按鈕
+                            if (currentRow.components.length === 5 || index === items.length - 1) {
+                                components.push(currentRow);
+                                currentRow = new ActionRowBuilder();
+                            }
+                        });
+
+                        // 添加補登按鈕到最後一行
+                        const addAttendeeButton = new ButtonBuilder()
+                            .setCustomId(`add_attendee_${bossKill._id}`)
+                            .setLabel('補登申請')
+                            .setStyle(ButtonStyle.Secondary);
+                        currentRow.addComponents(addAttendeeButton);
+                        if (currentRow.components.length > 0) {
+                            components.push(currentRow);
+                        }
+
+                        await channel.send({ embeds: [embed], components });
+                        logger.info(`Discord message sent to channel ${channelId} with boss kill log and per-item buttons`);
                     } else {
-    logger.error(`Channel ${channelId} not found`);
-}
+                        logger.error(`Channel ${channelId} not found`);
+                    }
                 } catch (discordErr) {
-    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
-}
+                    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
+                }
             } else {
-    logger.warn('Discord client or channelId missing; skipping Discord notification');
-}
+                logger.warn('Discord client or channelId missing; skipping Discord notification');
+            }
         }
 
-res.status(201).json({ msg: '擊殺記錄創建成功', results });
+        res.status(201).json({ msg: '擊殺記錄創建成功', results });
     } catch (err) {
-    console.error('Error saving boss kills:', err);
-    res.status(500).json({
-        code: 500,
-        msg: '保存擊殺記錄失敗',
-        detail: err.message || '伺服器處理錯誤',
-        suggestion: '請稍後重試或聯繫管理員。',
-    });
-}
+        console.error('Error saving boss kills:', err);
+        res.status(500).json({
+            code: 500,
+            msg: '保存擊殺記錄失敗',
+            detail: err.message || '伺服器處理錯誤',
+            suggestion: '請稍後重試或聯繫管理員。',
+        });
+    }
 });
-
-
-
 // 查詢擊殺記錄（支持篩選和分頁）
 router.get('/', auth, async (req, res) => {
     try {

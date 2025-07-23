@@ -11,7 +11,7 @@ require('dotenv').config();
 // 獲取待審核申請數量
 router.get('/pending-count', auth, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
+        if (!req.user.roles.includes('admin')) {
             return res.status(403).json({ code: 403, msg: '無權限訪問' });
         }
         const pendingCount = await Application.countDocuments({ status: 'pending' });
@@ -28,7 +28,7 @@ router.get('/pending-count', auth, async (req, res) => {
 
 // 提交申請
 router.post('/', auth, async (req, res) => {
-    const { kill_id, item_id, item_name } = req.body;
+    const { kill_id, item_id, item_name, reason, captcha } = req.body;
     const user = req.user;
 
     try {
@@ -39,6 +39,28 @@ router.post('/', auth, async (req, res) => {
                 detail: '請確保已正確登錄並提供有效的 Token。',
                 suggestion: '請重新登錄或聯繫管理員。',
             });
+        }
+
+        // 檢查是否為 Bot 請求並繞過 CAPTCHA
+        if (!req.headers['x-bot-auth'] && !captcha) {
+            return res.status(400).json({
+                code: 400,
+                msg: '驗證碼缺失',
+                detail: '請輸入驗證碼',
+            });
+        }
+
+        // 如果有 CAPTCHA，驗證它（假設使用 reCAPTCHA）
+        if (captcha) {
+            // 模擬 CAPTCHA 驗證邏輯（需要根據您的 CAPTCHA 實現替換）
+            const isValidCaptcha = true; // 替換為實際的 CAPTCHA 驗證邏輯
+            if (!isValidCaptcha) {
+                return res.status(400).json({
+                    code: 400,
+                    msg: '驗證碼無效',
+                    detail: '請輸入正確的驗證碼',
+                });
+            }
         }
 
         if (!kill_id || !item_id || !item_name) {
@@ -134,6 +156,7 @@ router.post('/', auth, async (req, res) => {
             item_id: droppedItem._id,
             item_name,
             status: 'pending',
+            reason: reason || '',
         });
         await application.save();
 
