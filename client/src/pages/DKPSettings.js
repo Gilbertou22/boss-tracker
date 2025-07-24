@@ -1,7 +1,7 @@
 // pages/DKPSettings.js
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, message, Select, Modal, Form, Space } from 'antd';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 
@@ -25,7 +25,7 @@ const DKPSettings = () => {
     // 獲取所有 Boss 記錄
     const fetchBosses = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/bosses`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/bosses`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             setBosses(res.data);
@@ -38,7 +38,7 @@ const DKPSettings = () => {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/dkp`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/dkp`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             setSettings(res.data);
@@ -57,7 +57,7 @@ const DKPSettings = () => {
         }
 
         try {
-            await axios.post(`${BASE_URL}/api/dkp`, {
+            await axiosInstance.post(`${BASE_URL}/api/dkp`, {
                 bossId: selectedBossId,
                 dkpPoints: parseInt(dkpPoints),
             }, {
@@ -90,7 +90,7 @@ const DKPSettings = () => {
                 return;
             }
 
-            await axios.put(`${BASE_URL}/api/dkp/${editingSetting._id}`, {
+            await axiosInstance.put(`${BASE_URL}/api/dkp/${editingSetting._id}`, {
                 dkpPoints: parseInt(values.dkpPoints),
             }, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
@@ -106,7 +106,7 @@ const DKPSettings = () => {
     // 刪除 DKP 設定
     const handleDelete = async (settingId) => {
         try {
-            await axios.delete(`${BASE_URL}/api/dkp/${settingId}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/dkp/${settingId}`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             message.success('DKP 設定刪除成功');

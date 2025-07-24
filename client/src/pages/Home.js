@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, List, Avatar, Button, Space, Typography, Divider, Spin, message, Statistic, Row, Col, Select, Badge, Progress } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import moment from 'moment';
 import { FileDoneOutlined, ShoppingOutlined, TeamOutlined, UserOutlined, WarningOutlined, BarChartOutlined, BellOutlined, HistoryOutlined, TrophyOutlined } from '@ant-design/icons';
 import formatNumber from '../utils/formatNumber';
@@ -9,6 +8,7 @@ import statusTag from '../utils/statusTag';
 import { useNotification } from '../components/NotificationContext';
 import ReactECharts from 'echarts-for-react';
 import logger from '../utils/logger';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -41,13 +41,13 @@ const Home = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const userRes = await axios.get(`${BASE_URL}/api/users/profile`, {
+            const userRes = await axiosInstance.get(`${BASE_URL}/api/users/profile`, {
                 headers: { 'x-auth-token': token },
             });
             const fetchedUser = userRes.data;
             setUser(fetchedUser);
 
-            const auctionsRes = await axios.get(`${BASE_URL}/api/auctions?status=active`, {
+            const auctionsRes = await axiosInstance.get(`${BASE_URL}/api/auctions?status=active`, {
                 headers: { 'x-auth-token': token },
             });
             const enrichedAuctions = await Promise.all(auctionsRes.data.slice(0, 3).map(async (auction) => {
@@ -60,7 +60,7 @@ const Home = () => {
                         logger.warn('Invalid itemId in auction', { auctionId: auction._id, itemId });
                         return { ...auction, imageUrl };
                     }
-                    const bossKillRes = await axios.get(`${BASE_URL}/api/boss-kills/${itemId}`, {
+                    const bossKillRes = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${itemId}`, {
                         headers: { 'x-auth-token': token },
                     });
                     const bossKill = bossKillRes.data;
@@ -72,7 +72,7 @@ const Home = () => {
             }));
             setAuctions(enrichedAuctions);
 
-            const bossKillsRes = await axios.get(`${BASE_URL}/api/boss-kills`, {
+            const bossKillsRes = await axiosInstance.get(`${BASE_URL}/api/boss-kills`, {
                 headers: { 'x-auth-token': token },
             });
             const killData = Array.isArray(bossKillsRes.data.data) ? bossKillsRes.data.data : [];
@@ -85,19 +85,19 @@ const Home = () => {
             }));
             setBossKills(enrichedBossKills);
 
-            const userStatsRes = await axios.get(`${BASE_URL}/api/users/personal-stats`, {
+            const userStatsRes = await axiosInstance.get(`${BASE_URL}/api/users/personal-stats`, {
                 headers: { 'x-auth-token': token },
             });
             setUserStats(userStatsRes.data);
 
             if (token && fetchedUser && fetchedUser.roles && fetchedUser.roles.includes('admin')) {
                 const requests = [
-                    axios.get(`${BASE_URL}/api/users/stats`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
-                    axios.get(`${BASE_URL}/api/auctions/pending-count`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
-                    axios.get(`${BASE_URL}/api/auctions/monitor`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
-                    axios.get(`${BASE_URL}/api/users/growth?range=${timeRange}`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
-                    axios.get(`${BASE_URL}/api/auctions/trend`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
-                    axios.get(`${BASE_URL}/api/applications/trend?range=${timeRange}`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/users/stats`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/auctions/pending-count`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/auctions/monitor`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/users/growth?range=${timeRange}`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/auctions/trend`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
+                    axiosInstance.get(`${BASE_URL}/api/applications/trend?range=${timeRange}`, { headers: { 'x-auth-token': token } }).catch(err => ({ error: err })),
                 ];
                 const [statsRes, applicationsRes, monitorRes, userGrowthRes, auctionTrendRes, applicationTrendRes] = await Promise.all(requests);
 

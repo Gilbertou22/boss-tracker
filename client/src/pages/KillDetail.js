@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import { Card, Spin, message, Image } from 'antd';
 import moment from 'moment';
-import logger from '../utils/logger'; // 引入前端日誌工具
+import axiosInstance from '../utils/axiosInstance';
 
 const BASE_URL = process.env.REACT_APP_API_URL || '';
 
@@ -17,7 +16,7 @@ const KillDetail = () => {
         const fetchDetail = async () => {
             setLoading(true);
             try {
-                const res = await axios.get(`${BASE_URL}/api/boss-kills/${id}`, {
+                const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${id}`, {
                     headers: { 'x-auth-token': token },
                 });
                 setDetail(res.data);

@@ -30,7 +30,7 @@ const DiamondCalculator = () => {
         return;
       }
       try {
-        console.log('Fetching guilds...');
+        //console.log('Fetching guilds...');
         const guildsResponse = await axios.get(`${BASE_URL}/api/guilds`, {
           headers: { 'x-auth-token': token },
           cache: 'no-store',

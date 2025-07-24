@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Row, Col, Button, DatePicker, message, Image, Card, Spin, Alert, Tag, Tooltip, Popconfirm, Dropdown, Menu, Select, Table, Radio, Pagination, Input, Space } from 'antd';
 import { PlusOutlined, CheckOutlined, MoreOutlined, SendOutlined, InfoCircleOutlined, UserOutlined, AppstoreOutlined, UnorderedListOutlined, DownloadOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import moment from 'moment';
 import Papa from 'papaparse';
 import KillDetailModal from './KillDetailModal';
 import AddAttendeeModal from './AddAttendeeModal';
 import statusTag from '../utils/statusTag';
+import axiosInstance from '../utils/axiosInstance';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -73,14 +73,14 @@ const KillHistory = () => {
     const fetchUserInfo = async () => {
         try {
             setLoading(true);
-            const res = await axios.get(`${BASE_URL}/api/users/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
 
             setRole(res.data.roles && res.data.roles.length > 0 ? res.data.roles[0] : null);
             setCurrentUser(res.data.character_name);
             setUserId(res.data.id);
-          
+
         } catch (err) {
             //console.error('Fetch user info error:', err);
             message.error('載入用戶信息失敗: ' + (err.response?.data?.msg || err.message));
@@ -91,7 +91,7 @@ const KillHistory = () => {
 
     const fetchGuildSettings = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/guilds/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/guilds/me`, {
                 headers: { 'x-auth-token': token },
             });
             setApplyDeadlineHours(res.data.settings.applyDeadlineHours || 48);
@@ -102,7 +102,7 @@ const KillHistory = () => {
 
     const fetchBosses = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/bosses`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/bosses`, {
                 headers: { 'x-auth-token': token },
             });
             setBosses(res.data);
@@ -114,7 +114,7 @@ const KillHistory = () => {
 
     const fetchItemApplications = async (kill_id, item_id) => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/applications/by-kill-and-item`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/applications/by-kill-and-item`, {
                 headers: { 'x-auth-token': token },
                 params: { kill_id, item_id },
             });
@@ -127,7 +127,7 @@ const KillHistory = () => {
     const fetchKillDetail = async (killId) => {
         setModalLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/boss-kills/${killId}`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
             const detail = res.data;
@@ -145,7 +145,7 @@ const KillHistory = () => {
 
     const fetchUserApplications = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/applications/user`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/applications/user`, {
                 headers: { 'x-auth-token': token },
             });
 
@@ -187,13 +187,13 @@ const KillHistory = () => {
                 sortBy: sort.field,
                 sortOrder: sort.order,
             };
-            const res = await axios.get(`${BASE_URL}/api/boss-kills`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills`, {
                 headers: { 'x-auth-token': token },
                 params,
             });
 
             if (!res.data.data || res.data.data.length === 0) {
-                
+
                 setHistory([]);
                 setPagination({ current: page, pageSize, total: 0 });
                 setLoading(false);
@@ -310,7 +310,7 @@ const KillHistory = () => {
         }
         try {
             setLoading(true);
-            await axios.post(
+            await axiosInstance.post(
                 `${BASE_URL}/api/boss-kills/batch-delete`,
                 { ids: selectedRowKeys },
                 { headers: { 'x-auth-token': token } }
@@ -333,7 +333,7 @@ const KillHistory = () => {
         }
         try {
             setLoading(true);
-            await axios.post(
+            await axiosInstance.post(
                 `${BASE_URL}/api/boss-kills/batch-expire`,
                 { ids: selectedRowKeys },
                 { headers: { 'x-auth-token': token } }
@@ -360,7 +360,7 @@ const KillHistory = () => {
                 sortBy: sort.field,
                 sortOrder: sort.order,
             };
-            const res = await axios.get(`${BASE_URL}/api/boss-kills/export`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/export`, {
                 headers: { 'x-auth-token': token },
                 params,
             });
@@ -430,7 +430,7 @@ const KillHistory = () => {
                 return;
             }
 
-            const res = await axios.post(
+            const res = await axiosInstance.post(
                 `${BASE_URL}/api/applications`,
                 {
                     kill_id: killId,
@@ -484,7 +484,7 @@ const KillHistory = () => {
 
     const handleDelete = async (killId) => {
         try {
-            await axios.delete(`${BASE_URL}/api/boss-kills/${killId}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/boss-kills/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
             message.success('擊殺記錄刪除成功');
@@ -504,7 +504,7 @@ const KillHistory = () => {
                 return;
             }
 
-            const res = await axios.put(
+            const res = await axiosInstance.put(
                 `${BASE_URL}/api/boss-kills/${killId}/items/${itemId}`,
                 { status: 'expired' },
                 { headers: { 'x-auth-token': token } }

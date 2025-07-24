@@ -7,6 +7,7 @@ import moment from 'moment';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { icons } from '../assets/icons';
 import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -70,7 +71,7 @@ const ManageUsers = () => {
 
     const fetchUserInfo = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
             setUserRole(res.data.roles);
@@ -82,7 +83,7 @@ const ManageUsers = () => {
 
     const fetchGuilds = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/guilds`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/guilds`, {
                 headers: { 'x-auth-token': token },
             });
             setGuilds(res.data);
@@ -94,7 +95,7 @@ const ManageUsers = () => {
 
     const fetchProfessions = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/professions`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/professions`, {
                 headers: { 'x-auth-token': token },
             });
             setProfessions(res.data);
@@ -106,7 +107,7 @@ const ManageUsers = () => {
 
     const fetchRoles = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/roles`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/roles`, {
                 headers: { 'x-auth-token': token },
             });
             setRolesList(res.data);
@@ -119,7 +120,7 @@ const ManageUsers = () => {
     const fetchSuspiciousLogins = async () => {
         setSuspiciousLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/auth/suspicious-logins`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/auth/suspicious-logins`, {
                 headers: { 'x-auth-token': token },
             });
             setSuspiciousLogins(res.data);
@@ -152,7 +153,7 @@ const ManageUsers = () => {
         }
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/users`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users`, {
                 headers: { 'x-auth-token': token },
                 params: {
                     keyword: filters.search || undefined,
@@ -218,7 +219,7 @@ const ManageUsers = () => {
     const fetchStats = useCallback(async () => {
         if (!online) return;
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/stats`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/stats`, {
                 headers: { 'x-auth-token': token },
             });
             setStats(res.data);
@@ -231,7 +232,7 @@ const ManageUsers = () => {
     const fetchGrowthData = useCallback(async () => {
         if (!online) return;
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/growth`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/growth`, {
                 headers: { 'x-auth-token': token },
             });
             setGrowthData(res.data);
@@ -365,7 +366,7 @@ const ManageUsers = () => {
                 return;
             }
             setLoading(true);
-            const res = await axios.put(`${BASE_URL}/api/users/${id}/disable`, {}, {
+            const res = await axiosInstance.put(`${BASE_URL}/api/users/${id}/disable`, {}, {
                 headers: { 'x-auth-token': token },
             });
             message.success('盟友已設為 DISABLED 狀態');
@@ -399,7 +400,7 @@ const ManageUsers = () => {
 
         setLoading(true);
         try {
-            await axios.put(`${BASE_URL}/api/users/batch-disable`, { ids: selectedRowKeys }, {
+            await axiosInstance.put(`${BASE_URL}/api/users/batch-disable`, { ids: selectedRowKeys }, {
                 headers: { 'x-auth-token': token },
             });
             message.success('批量設為 DISABLED 成功');
@@ -421,7 +422,7 @@ const ManageUsers = () => {
                 return;
             }
             setLoading(true);
-            const res = await axios.post(
+            const res = await axiosInstance.post(
                 `${BASE_URL}/api/notifications/broadcast`,
                 { message: values.message, auctionId: values.auctionId || null },
                 { headers: { 'x-auth-token': token } }

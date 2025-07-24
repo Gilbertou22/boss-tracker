@@ -20,7 +20,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 const upload = multer({
     storage: multer.diskStorage({
         destination: './Uploads/',
-        filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
+        filename: (req, file, cb) => cb(null, `${ Date.now() } -${ file.originalname } `),
     }),
     limits: { fileSize: 600 * 1024 },
 });
@@ -87,9 +87,9 @@ router.get('/attendance/:guildId', auth, async (req, res) => {
     }
 });
 
-// 創建擊殺記錄
+// Create boss kill record
 router.post('/', auth, upload.single('screenshot'), async (req, res) => {
-    const { bossId, kill_time, dropped_items, attendees, final_recipient, status, apply_deadline_days, itemHolder, logText } = req.body;
+    const { bossId, kill_time, dropped_items, attendees, final_recipient, status, apply_deadline_days, itemHolder, logText, batchId } = req.body;
 
     try {
         const screenshot = req.file ? req.file.path : '/wp.jpg';
@@ -103,39 +103,32 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
             });
         }
 
-        let parsedItems = JSON.parse(dropped_items);
-        const items = await Promise.all(parsedItems.map(async item => {
-            const itemDoc = await Item.findOne({ name: item.name }).populate('level', 'level color').lean();
-            if (!itemDoc || !itemDoc.level) {
-                return res.status(400).json({
-                    code: 400,
-                    msg: `物品 ${item.name} 未找到或未定義等級`,
-                    suggestion: '請確保物品存在於 Item 表中且已設置等級',
-                });
+        let parsedItems;
+        try {
+            parsedItems = JSON.parse(dropped_items);
+            if (!Array.isArray(parsedItems) || parsedItems.length !== 1) {
+                throw new Error('dropped_items 必須是單一物品的陣列');
             }
-            return {
-                _id: new mongoose.Types.ObjectId(),
-                name: item.name,
-                type: item.type,
-                apply_deadline: new Date(new Date(kill_time).getTime() + (apply_deadline_days || 7) * 24 * 60 * 60 * 1000),
-                final_recipient: null,
-                level: itemDoc.level._id,
-            };
-        }));
-
-        let parsedAttendees = attendees;
-        if (typeof attendees === 'string') {
-            try {
-                parsedAttendees = JSON.parse(attendees);
-            } catch (e) {
-                return res.status(400).json({
-                    code: 400,
-                    msg: 'attendees 格式錯誤',
-                    detail: 'attendees 必須是有效的 JSON 字符串陣列',
-                    suggestion: '請檢查輸入格式，例如 ["user1", "user2"]',
-                });
-            }
+        } catch (e) {
+            return res.status(400).json({
+                code: 400,
+                msg: 'dropped_items 格式錯誤',
+                detail: 'dropped_items 必須是包含單一物品的 JSON 陣列，例如 [{"name": "item1"}]',
+                suggestion: '請檢查輸入格式',
+            });
         }
+
+        const item = parsedItems[0];
+        const itemDoc = await Item.findOne({ name: item.name }).populate('level', 'level color').lean();
+        if (!itemDoc || !itemDoc.level) {
+            return res.status(400).json({
+                code: 400,
+                msg: `物品 ${ item.name } 未找到或未定義等級`,
+                suggestion: '請確保物品存在於 Item 表中且已設置等級',
+            });
+        }
+
+        const parsedAttendees = typeof attendees === 'string' ? JSON.parse(attendees) : attendees;
         if (!Array.isArray(parsedAttendees) || !parsedAttendees.every(item => typeof item === 'string')) {
             return res.status(400).json({
                 code: 400,
@@ -145,24 +138,30 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
             });
         }
 
-        // 創建單一 BossKill 記錄，包含所有 dropped_items
         const bossKill = new BossKill({
             bossId,
             kill_time,
-            dropped_items: items,
+            dropped_items: [{
+                _id: new mongoose.Types.ObjectId(),
+                name: item.name,
+                type: item.type || 'equipment',
+                apply_deadline: new Date(new Date(kill_time).getTime() + (apply_deadline_days || 7) * 24 * 60 * 60 * 1000),
+                final_recipient: null,
+                level: itemDoc.level._id,
+            }],
             attendees: parsedAttendees,
             screenshots: [screenshot],
             final_recipient: final_recipient || null,
             status: status || 'pending',
             userId: req.user.id,
             itemHolder: itemHolder || null,
+            batchId: batchId || null,
         });
         await bossKill.save();
 
-        const results = [{ kill_id: bossKill._id }];
-
-        // 檢查是否啟用 Discord 訊息發送
-        if (logText && process.env.SEND_DISCORD_MESSAGE === 'true') {
+        // Check for other records in the same batch and send Discord message if this is the last one
+        if (logText && process.env.SEND_DISCORD_MESSAGE === 'true' && batchId) {
+            const batchKills = await BossKill.find({ batchId }).populate('bossId', 'name').lean();
             const discordClient = req.app.get('discordClient');
             const channelId = process.env.DISCORD_BOSS_KILL_CHANNEL_ID || '1359700987539099799';
             if (discordClient && channelId) {
@@ -175,74 +174,72 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
                             logger.warn('logText truncated to fit Discord message limit');
                         }
 
-                        // 創建嵌入消息
                         const embed = new EmbedBuilder()
                             .setColor(0x00FFFF)
                             .setTitle('新的首領消滅記錄')
                             .setDescription(`\`\`\`\n${formattedLogText}\n\`\`\``)
                             .addFields(
-                                { name: '首領', value: boss.name || '未知', inline: true },
-                                { name: '擊殺時間', value: moment(kill_time).format('YYYY-MM-DD HH:mm'), inline: true },
-                                { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
-                            )
-                            .setTimestamp(new Date(kill_time))
-                            .setFooter({ text: '點擊物品按鈕進行申請或補登' });
+    { name: '首領', value: boss.name || '未知', inline: true },
+    { name: '擊殺時間', value: moment(kill_time).format('YYYY-MM-DD HH:mm'), inline: true },
+    { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
+)
+    .setTimestamp(new Date(kill_time))
+    .setFooter({ text: '點擊物品按鈕進行申請或補登' });
 
-                        // 動態生成掉落物品字段，並在每個物品名稱後準備按鈕
-                        const components = [];
-                        let currentRow = new ActionRowBuilder();
-                        items.forEach((item, index) => {
-                            embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+const components = [];
+let currentRow = new ActionRowBuilder();
+batchKills.forEach((kill, index) => {
+    const item = kill.dropped_items[0];
+    embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
 
-                            const button = new ButtonBuilder()
-                                .setCustomId(`apply_item_${bossKill._id}_${item._id.toString()}`)
-                                .setLabel(`申請 ${item.name}`)
-                                .setStyle(ButtonStyle.Primary);
+    const button = new ButtonBuilder()
+        .setCustomId(`apply_item_${kill._id}_${item._id.toString()}`)
+        .setLabel(`申請 ${item.name}`)
+        .setStyle(ButtonStyle.Primary);
 
-                            currentRow.addComponents(button);
+    currentRow.addComponents(button);
 
-                            // 每行最多5個按鈕
-                            if (currentRow.components.length === 5 || index === items.length - 1) {
-                                components.push(currentRow);
-                                currentRow = new ActionRowBuilder();
-                            }
-                        });
-
-                        // 添加補登按鈕到最後一行
-                        const addAttendeeButton = new ButtonBuilder()
-                            .setCustomId(`add_attendee_${bossKill._id}`)
-                            .setLabel('補登申請')
-                            .setStyle(ButtonStyle.Secondary);
-                        currentRow.addComponents(addAttendeeButton);
-                        if (currentRow.components.length > 0) {
-                            components.push(currentRow);
-                        }
-
-                        await channel.send({ embeds: [embed], components });
-                        logger.info(`Discord message sent to channel ${channelId} with boss kill log and per-item buttons`);
-                    } else {
-                        logger.error(`Channel ${channelId} not found`);
-                    }
-                } catch (discordErr) {
-                    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
-                }
-            } else {
-                logger.warn('Discord client or channelId missing; skipping Discord notification');
-            }
-        }
-
-        res.status(201).json({ msg: '擊殺記錄創建成功', results });
-    } catch (err) {
-        console.error('Error saving boss kills:', err);
-        res.status(500).json({
-            code: 500,
-            msg: '保存擊殺記錄失敗',
-            detail: err.message || '伺服器處理錯誤',
-            suggestion: '請稍後重試或聯繫管理員。',
-        });
+    if (currentRow.components.length === 5 || index === batchKills.length - 1) {
+        components.push(currentRow);
+        currentRow = new ActionRowBuilder();
     }
 });
-// 查詢擊殺記錄（支持篩選和分頁）
+
+const addAttendeeButton = new ButtonBuilder()
+    .setCustomId(`add_attendee_${bossKill._id}`)
+    .setLabel('補登申請')
+    .setStyle(ButtonStyle.Secondary);
+currentRow.addComponents(addAttendeeButton);
+if (currentRow.components.length > 0) {
+    components.push(currentRow);
+}
+
+await channel.send({ embeds: [embed], components });
+logger.info(`Discord message sent to channel ${channelId} for batch ${batchId}`);
+                    } else {
+    logger.error(`Channel ${channelId} not found`);
+}
+                } catch (discordErr) {
+    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
+}
+            } else {
+    logger.warn('Discord client or channelId missing; skipping Discord notification');
+}
+        }
+
+res.status(201).json({ msg: '擊殺記錄創建成功', results: [{ kill_id: bossKill._id }] });
+    } catch (err) {
+    console.error('Error saving boss kill:', err);
+    res.status(500).json({
+        code: 500,
+        msg: '保存擊殺記錄失敗',
+        detail: err.message || '伺服器處理錯誤',
+        suggestion: '請稍後重試或聯繫管理員。',
+    });
+}
+});
+
+// Query boss kill records (supports filtering and pagination)
 router.get('/', auth, async (req, res) => {
     try {
         const { status, page = 1, pageSize = 10, sortBy = 'kill_time', sortOrder = 'desc' } = req.query;
@@ -292,9 +289,11 @@ router.get('/', auth, async (req, res) => {
         logger.info('Fetched boss kills with filters', { userId: req.user.id, query, page, pageSize, sort });
         res.json({
             data: enrichedKills,
-            total,
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
+            pagination: {
+                current: parseInt(page),
+                pageSize: parseInt(pageSize),
+                total,
+            },
         });
     } catch (err) {
         logger.error('Error fetching boss kills', { userId: req.user.id, error: err.message, stack: err.stack });
@@ -307,7 +306,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// 獲取過期物品
+// Get expired items
 router.get('/expired-items', auth, async (req, res) => {
     try {
         const now = new Date();
@@ -435,7 +434,7 @@ router.get('/expired-items', auth, async (req, res) => {
     }
 });
 
-// 獲取單個擊殺記錄詳情
+// Get single boss kill record details
 router.get('/:id', auth, async (req, res) => {
     try {
         const bossKill = await BossKill.findById(req.params.id)
@@ -460,7 +459,7 @@ router.get('/:id', auth, async (req, res) => {
     }
 });
 
-// 獲取所有擊殺記錄（管理員專用）
+// Get all boss kill records (admin only)
 router.get('/all', auth, adminOnly, async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
@@ -525,7 +524,7 @@ router.get('/all', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 同步擊殺記錄中的物品分配狀態
+// Sync item status in boss kill records
 router.post('/sync-items-status', auth, adminOnly, async (req, res) => {
     try {
         const bossKills = await BossKill.find({}).lean();
@@ -588,7 +587,7 @@ router.post('/sync-items-status', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 更新擊殺記錄
+// Update boss kill record
 router.put('/:id', auth, adminOnly, async (req, res) => {
     const { status, final_recipient, attendees, dropped_items, itemHolder } = req.body;
     try {
@@ -630,7 +629,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 更新物品狀態
+// Update item status
 router.put('/:killId/items/:itemId', auth, adminOnly, async (req, res) => {
     try {
         const bossKill = await BossKill.findById(req.params.killId);
@@ -685,7 +684,7 @@ router.put('/:killId/items/:itemId', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 分配 DKP 點數
+// Distribute DKP points
 router.post('/distribute/:killId', auth, adminOnly, async (req, res) => {
     try {
         const bossKill = await BossKill.findById(req.params.killId).populate('bossId');
@@ -737,7 +736,7 @@ router.post('/distribute/:killId', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 批量刪除擊殺記錄
+// Batch delete boss kill records
 router.post('/batch-delete', auth, adminOnly, async (req, res) => {
     try {
         const { ids } = req.body;
@@ -772,7 +771,7 @@ router.post('/batch-delete', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 批量設為已過期
+// Batch set items as expired
 router.post('/batch-set-expired', auth, adminOnly, async (req, res) => {
     try {
         const { items } = req.body;
@@ -817,7 +816,7 @@ router.post('/batch-set-expired', auth, adminOnly, async (req, res) => {
     }
 });
 
-// 添加 DELETE /:id 路由，支援單個擊殺記錄的刪除
+// Delete single boss kill record
 router.delete('/:id', auth, adminOnly, async (req, res) => {
     try {
         const { id } = req.params;

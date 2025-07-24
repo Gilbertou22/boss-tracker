@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, message, Table, Input, Button, Form, Statistic } from 'antd';
+import { Card, Row, Col, message, Table, Input, Button, Form, Statistic, Spin, Alert } from 'antd';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
     Chart as ChartJS,
@@ -11,8 +11,8 @@ import {
     Legend,
     ArcElement,
 } from 'chart.js';
-import axios from 'axios';
-import logger from '../utils/logger'; // 引入前端日誌工具
+import logger from '../utils/logger';
+import axiosInstance from '../utils/axiosInstance';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -33,12 +33,14 @@ const Stats = () => {
         pagination: { total: 0, page: 1, pageSize: 10 },
     });
     const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         fetchStats({ page: 1, pageSize: 10 });
     }, []);
 
     const fetchStats = async (params = {}) => {
+        setLoading(true);
         try {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -46,24 +48,27 @@ const Stats = () => {
                 window.location.href = '/login';
                 return;
             }
-            const res = await axios.get(`${BASE_URL}/api/stats/summary`, {
+            const res = await axiosInstance.get(`${ BASE_URL }/api/stats/summary`, {
                 headers: { 'x-auth-token': token },
                 params: { ...params },
             });
-            setStats(prevStats => ({
-                ...prevStats,
+            logger.info('Fetched stats:', res.data);
+            setStats({
                 ...res.data,
                 bossStats: res.data.bossStats || [],
                 userStats: res.data.userStats || [],
                 pagination: res.data.pagination || { total: 0, page: 1, pageSize: 10 },
-            }));
+            });
         } catch (err) {
             const errorMsg = err.response?.data?.msg || err.message || '載入統計數據失敗';
             message.error(errorMsg);
+            logger.error('Fetch stats failed:', { error: err.message, stack: err.stack });
             if (err.response && (err.response.status === 401 || err.response.status === 403)) {
                 localStorage.removeItem('token');
                 window.location.href = '/login';
             }
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -81,7 +86,7 @@ const Stats = () => {
     };
 
     const barData = {
-        labels: stats.bossStats.map(stat => stat._id),
+        labels: stats.bossStats.map(stat => stat.bossName || '未知首領'),
         datasets: [
             {
                 label: '擊殺次數',
@@ -97,7 +102,11 @@ const Stats = () => {
         labels: ['擊殺', '競標', '申請'],
         datasets: [
             {
-                data: [stats.totalBossKills, stats.totalAuctions, stats.totalApplications],
+                data: [
+                    stats.totalBossKills || 0,
+                    stats.totalAuctions || 0,
+                    stats.totalApplications || 0,
+                ],
                 backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56'],
                 hoverBackgroundColor: ['#36A2EB', '#FF6384', '#FFCE56'],
             },
@@ -121,6 +130,15 @@ const Stats = () => {
         plugins: {
             legend: { position: 'right' },
             title: { display: true, text: '活動分佈' },
+            tooltip: {
+                callbacks: {
+                    label: (context) => {
+                        const label = context.label || '';
+                        const value = context.raw || 0;
+                        return `${ label }: ${ value } `;
+                    },
+                },
+            },
         },
     };
 
@@ -134,96 +152,102 @@ const Stats = () => {
     return (
         <div style={{ maxWidth: 1000, margin: '50px auto' }}>
             <h2>統計報表</h2>
-            <Row gutter={[16, 16]}>
-                <Col span={6}>
-                    <Statistic title="總擊殺次數" value={stats.totalBossKills} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="總競標數" value={stats.totalAuctions} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="總申請數" value={stats.totalApplications} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="總鑽石收益" value={stats.totalDiamonds} />
-                </Col>
-            </Row>
-            <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
-                <Col span={6}>
-                    <Statistic title="已分配物品數" value={stats.itemsAssigned} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="未分配物品數" value={stats.itemsPending} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="申請成功率 (%)" value={stats.applicationSuccessRate} />
-                </Col>
-                <Col span={6}>
-                    <Statistic title="競標成功率 (%)" value={stats.auctionSuccessRate} />
-                </Col>
-            </Row>
-            <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
-                <Col span={12}>
-                    <Bar data={barData} options={barOptions} />
-                </Col>
-                <Col span={12}>
-                    <Pie data={pieData} options={pieOptions} />
-                </Col>
-            </Row>
-            <div style={{ marginTop: 20 }}>
-                <h3>用戶參與統計</h3>
-                <Form form={form} onFinish={onFinish} layout="inline" style={{ marginBottom: 16 }}>
-                    <Form.Item name="character_name" label="角色名稱">
-                        <Input placeholder="輸入角色名稱" />
-                    </Form.Item>
-                    <Form.Item name="min_applications" label="最少申請次數">
-                        <Input type="number" min={0} placeholder="0" style={{ width: 100 }} />
-                    </Form.Item>
-                    <Form.Item name="min_auctions" label="最少競標次數">
-                        <Input type="number" min={0} placeholder="0" style={{ width: 100 }} />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit">
-                            篩選
-                        </Button>
-                    </Form.Item>
-                </Form>
-                <Table
-                    dataSource={stats.userStats}
-                    columns={userColumns}
-                    rowKey="_id"
-                    bordered
-                    pagination={{
-                        current: stats.pagination.page,
-                        pageSize: stats.pagination.pageSize,
-                        total: stats.pagination.total,
-                        showSizeChanger: true,
-                        pageSizeOptions: ['10', '20', '50'],
-                    }}
-                    onChange={handleTableChange}
-                    style={{ background: '#fafafa' }}
-                    rowClassName={() => 'custom-row-height'}
-                    components={{
-                        header: {
-                            cell: (props) => (
-                                <th
-                                    {...props}
-                                    style={{
-                                        background: '#1890ff',
-                                        color: '#fff',
-                                        fontWeight: 'bold',
-                                    }}
-                                />
-                            ),
-                        },
-                    }}
-                />
-            </div>
+            <Spin spinning={loading}>
+                <Row gutter={[16, 16]}>
+                    <Col span={6}>
+                        <Statistic title="總擊殺次數" value={stats.totalBossKills} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="總競標數" value={stats.totalAuctions} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="總申請數" value={stats.totalApplications} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="總鑽石收益" value={stats.totalDiamonds} />
+                    </Col>
+                </Row>
+                <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
+                    <Col span={6}>
+                        <Statistic title="已分配物品數" value={stats.itemsAssigned} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="未分配物品數" value={stats.itemsPending} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="申請成功率 (%)" value={stats.applicationSuccessRate.toFixed(2)} />
+                    </Col>
+                    <Col span={6}>
+                        <Statistic title="競標成功率 (%)" value={stats.auctionSuccessRate.toFixed(2)} />
+                    </Col>
+                </Row>
+                <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
+                    <Col span={12}>
+                        <Card title="首領擊殺分佈">
+                            <Bar data={barData} options={barOptions} />
+                        </Card>
+                    </Col>
+                    <Col span={12}>
+                        <Card title="活動分佈">
+                            <Pie data={pieData} options={pieOptions} />
+                        </Card>
+                    </Col>
+                </Row>
+                <div style={{ marginTop: 20 }}>
+                    <h3>用戶參與統計</h3>
+                    <Form form={form} onFinish={onFinish} layout="inline" style={{ marginBottom: 16 }}>
+                        <Form.Item name="character_name" label="角色名稱">
+                            <Input placeholder="輸入角色名稱" />
+                        </Form.Item>
+                        <Form.Item name="min_applications" label="最少申請次數">
+                            <Input type="number" min={0} placeholder="0" style={{ width: 100 }} />
+                        </Form.Item>
+                        <Form.Item name="min_auctions" label="最少競標次數">
+                            <Input type="number" min={0} placeholder="0" style={{ width: 100 }} />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit">
+                                篩選
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                    <Table
+                        dataSource={stats.userStats}
+                        columns={userColumns}
+                        rowKey="_id"
+                        bordered
+                        pagination={{
+                            current: stats.pagination.page,
+                            pageSize: stats.pagination.pageSize,
+                            total: stats.pagination.total,
+                            showSizeChanger: true,
+                            pageSizeOptions: ['10', '20', '50'],
+                        }}
+                        onChange={handleTableChange}
+                        style={{ background: '#fafafa' }}
+                        rowClassName={() => 'custom-row-height'}
+                        components={{
+                            header: {
+                                cell: (props) => (
+                                    <th
+                                        {...props}
+                                        style={{
+                                            background: '#1890ff',
+                                            color: '#fff',
+                                            fontWeight: 'bold',
+                                        }}
+                                    />
+                                ),
+                            },
+                        }}
+                    />
+                </div>
+            </Spin>
             <style jsx>{`
-        .custom-row-height {
-          height: 50px;
-        }
-      `}</style>
+    .custom - row - height {
+    height: 50px;
+}
+`}</style>
         </div>
     );
 };

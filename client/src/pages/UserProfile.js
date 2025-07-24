@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, InputNumber, Button, message, Spin } from 'antd';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import logger from '../utils/logger'; // 引入前端日誌工具
+import axiosInstance from '../utils/axiosInstance';
 
 const { TextArea } = Input;
 const BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -27,7 +26,7 @@ const UserProfile = ({ visible, onCancel }) => {
 
             try {
                 setLoading(true);
-                const res = await axios.get(`${BASE_URL}/api/users/profile`, {
+                const res = await axiosInstance.get(`${BASE_URL}/api/users/profile`, {
                     headers: { 'x-auth-token': token },
                 });
 
@@ -70,7 +69,7 @@ const UserProfile = ({ visible, onCancel }) => {
                 headers: { 'x-auth-token': token },
                 timeout: 5000,
             };
-            const res = await axios.put(`${BASE_URL}/api/users/profile`, submitValues, config);
+            const res = await axiosInstance.put(`${BASE_URL}/api/users/profile`, submitValues, config);
 
             alert('用戶資料更新成功');
             onCancel();

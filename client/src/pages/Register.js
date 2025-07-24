@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, InputNumber, Upload, Button, message, Modal, Card, Typography, Space, Alert, Progress, Select } from 'antd';
 import { UploadOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import logger from '../utils/logger';
 import { motion } from 'framer-motion';
 import { icons } from '../assets/icons';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -72,7 +72,7 @@ const Register = () => {
 
     const fetchProfessions = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/professions`);
+            const res = await axiosInstance.get(`${BASE_URL}/api/professions`);
             setProfessions(res.data);
         } catch (err) {
             logger.error('Fetch professions error:', err);
@@ -113,7 +113,7 @@ const Register = () => {
 
         try {
             logger.info('Submitting registration with data:', values);
-            const res = await axios.post(`${BASE_URL}/api/users/register`, formData, {
+            const res = await axiosInstance.post(`${BASE_URL}/api/users/register`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

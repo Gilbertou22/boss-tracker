@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Tag, Card, message, Select, DatePicker, Button, Space, Modal, Descriptions, Image, Row, Col, Tabs } from 'antd';
-import axios from 'axios';
 import moment from 'moment';
 import logger from '../utils/logger';
 import formatNumber from '../utils/formatNumber';
@@ -8,6 +7,7 @@ import { DownloadOutlined, EyeOutlined, ClockCircleOutlined, SwapOutlined, Dolla
 import Papa from 'papaparse';
 import CountUp from 'react-countup';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -45,12 +45,12 @@ const Wallet = () => {
 
     const fetchUserInfo = useCallback(async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             setDiamonds(res.data.diamonds || 0);
 
-            const dkpRes = await axios.get(`${BASE_URL}/api/dkp/stats`, {
+            const dkpRes = await axiosInstance.get(`${BASE_URL}/api/dkp/stats`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             setDkpPoints(dkpRes.data.dkpPoints || 0);
@@ -73,7 +73,7 @@ const Wallet = () => {
                 sortBy: 'timestamp',
                 sortOrder: 'desc',
             };
-            const res = await axios.get(`${BASE_URL}/api/wallet/transactions`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/wallet/transactions`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
                 params,
             });
@@ -129,7 +129,7 @@ const Wallet = () => {
                 startDate: filters.dateRange ? filters.dateRange[0].toISOString() : null,
                 endDate: filters.dateRange ? filters.dateRange[1].toISOString() : null,
             };
-            const res = await axios.get(`${BASE_URL}/api/wallet/transactions/export`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/wallet/transactions/export`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
                 params,
             });
@@ -180,7 +180,7 @@ const Wallet = () => {
                     message.error('無效的拍賣 ID');
                     return;
                 }
-                const res = await axios.get(`${BASE_URL}/api/auctions/${auctionId}`, {
+                const res = await axiosInstance.get(`${BASE_URL}/api/auctions/${auctionId}`, {
                     headers: { 'x-auth-token': localStorage.getItem('token') },
                 });
                 setAuctionDetails(res.data);

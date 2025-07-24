@@ -1,4 +1,3 @@
-// Modified BossKillForm.js with fixes
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Upload, Select, message, DatePicker, Input, Row, Col, Alert, Spin, Card, Space, Typography, Modal, Tag, List } from 'antd';
 import { UploadOutlined, UserOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -7,6 +6,7 @@ import moment from 'moment';
 import imageCompression from 'browser-image-compression';
 import logger from '../utils/logger';
 import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -37,7 +37,7 @@ const BossKillForm = () => {
     });
     const [date, setDate] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [pasteImageLoading, setPasteImageLoading] = useState(false); // New state for paste loading
+    const [pasteImageLoading, setPasteImageLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [rolesLoading, setRolesLoading] = useState(true);
     const [online, setOnline] = useState(navigator.onLine);
@@ -74,9 +74,9 @@ const BossKillForm = () => {
         window.addEventListener('offline', () => setOnline(false));
 
         return () => {
-            window.removeEventListener('beforeinstallprompt', () => { });
-            window.removeEventListener('online', () => { });
-            window.removeEventListener('offline', () => { });
+            window.removeEventListener('beforeinstallprompt', () => {});
+            window.removeEventListener('online', () => {});
+            window.removeEventListener('offline', () => {});
         };
     }, [navigate]);
 
@@ -264,8 +264,8 @@ const BossKillForm = () => {
                 return;
             }
             const newFile = {
-                uid: `paste-${Date.now()}`,
-                name: `pasted-image-${Date.now()}.${file.type.split('/')[1]}`,
+                uid: `paste - ${ Date.now() } `,
+                name: `pasted - image - ${ Date.now() }.${ file.type.split('/')[1] } `,
                 status: 'done',
                 originFileObj: compressedFile,
             };
@@ -327,19 +327,19 @@ const BossKillForm = () => {
                     const normalizedAttendee = attendee.trim().toLowerCase();
                     const isValid = users.some(user => user.trim().toLowerCase() === normalizedAttendee);
                     if (!isValid) {
-                        logger.warn(`Attendee ${attendee} not found in users list`, { users });
+                        logger.warn(`Attendee ${ attendee } not found in users list`, { users });
                     }
                     return isValid;
                 })
                 .map(attendee => users.find(user => user.trim().toLowerCase() === attendee.trim().toLowerCase()));
             if (validAttendees.length > 0) {
                 form.setFieldsValue({ attendees: validAttendees });
-                message.success(`成功解析 ${validAttendees.length} 名戰鬥參與者`);
+                message.success(`成功解析 ${ validAttendees.length } 名戰鬥參與者`);
             } else {
                 const missingAttendees = attendees.filter(attendee =>
                     !users.some(user => user.trim().toLowerCase() === attendee.trim().toLowerCase())
                 );
-                message.warning(`未找到以下參與者：${missingAttendees.join(', ')}，請確認用戶名或手動選擇`);
+                message.warning(`未找到以下參與者：${ missingAttendees.join(', ') }，請確認用戶名或手動選擇`);
                 logger.warn('No valid attendees found', { attendees, users, missingAttendees });
             }
 
@@ -349,7 +349,7 @@ const BossKillForm = () => {
             const contents = contentLine.split(/[\t\s]+/).map(c => c.trim());
 
             if (headers.length !== contents.length) {
-                message.error(`日誌格式錯誤：表頭字段數 (${headers.length}) 與內容字段數 (${contents.length}) 不一致`);
+                message.error(`日誌格式錯誤：表頭字段數(${ headers.length }) 與內容字段數(${ contents.length }) 不一致`);
                 return;
             }
 
@@ -366,7 +366,7 @@ const BossKillForm = () => {
                 if (match) {
                     const datePart = match[1];
                     let timePart = match[2].replace(/\./g, ':');
-                    const formattedTime = `${datePart.replace(/\./g, '-')} ${timePart}`;
+                    const formattedTime = `${ datePart.replace(/\./g, '-') } ${ timePart } `;
                     killTime = moment(formattedTime, 'YYYY-MM-DD HH:mm:ss');
                     if (!killTime.isValid()) {
                         message.warning('消滅時間格式無效，請手動選擇');
@@ -387,7 +387,7 @@ const BossKillForm = () => {
                 if (boss) {
                     form.setFieldsValue({ bossId: boss._id });
                 } else {
-                    message.warning(`未找到首領 ${bossName}，請手動選擇`);
+                    message.warning(`未找到首領 ${ bossName }，請手動選擇`);
                 }
             }
 
@@ -397,7 +397,7 @@ const BossKillForm = () => {
                 if (distribution.includes('旅團部隊長獲得')) {
                     if (guildCaptainName && users.includes(guildCaptainName)) {
                         form.setFieldsValue({ itemHolder: guildCaptainName });
-                        message.success(`已自動選擇旅團部隊長 ${guildCaptainName} 作為戰利品持有人`);
+                        message.success(`已自動選擇旅團部隊長 ${ guildCaptainName } 作為戰利品持有人`);
                     } else {
                         message.warning('未找到旅團部隊長或旅團部隊長不在用戶列表中，請手動選擇物品持有人');
                     }
@@ -408,7 +408,7 @@ const BossKillForm = () => {
                         if (users.includes(itemHolder)) {
                             form.setFieldsValue({ itemHolder });
                         } else {
-                            message.warning(`未找到用戶 ${itemHolder}，請手動選擇物品持有人`);
+                            message.warning(`未找到用戶 ${ itemHolder }，請手動選擇物品持有人`);
                         }
                     } else {
                         message.warning('未找到物品持有人，請手動選擇');
@@ -423,28 +423,32 @@ const BossKillForm = () => {
                 const itemsLines = lines.slice(itemsStartIndex + 1);
                 const droppedItems = itemsLines
                     .map(line => {
-                        // Split on tab or multiple spaces before the quantity
                         const parts = line.split(/[\t\s]+(?=\d+個)/).map(part => part.trim());
+                        logger.info('Parsed item parts:', { line, parts });
                         if (parts.length >= 2) {
-                            const itemName = parts[0]; // Keep the full item name, including (拾取: ...)
+                            const itemName = parts[0].split(' (拾取:')[0].trim();
                             return itemName;
                         }
                         return null;
                     })
                     .filter(item => item);
+                logger.info('Dropped items:', { droppedItems });
                 const validItems = droppedItems
                     .map(itemName => {
-                        // Normalize item names for comparison (replace en dash with hyphen)
                         const normalizedItemName = itemName.replace(/–/g, '-').trim();
-                        return items.find(item =>
+                        const foundItem = items.find(item =>
                             item.name.replace(/–/g, '-').trim() === normalizedItemName
                         );
+                        if (!foundItem) {
+                            logger.warn(`Item ${ itemName } not found in items list`, { normalizedItemName, items });
+                        }
+                        return foundItem;
                     })
                     .filter(item => item)
                     .map(item => ({ name: item.name }));
                 if (validItems.length > 0) {
                     form.setFieldsValue({ item_names: validItems });
-                    message.success(`成功解析 ${validItems.length} 個戰利品`);
+                    message.success(`成功解析 ${ validItems.length } 個戰利品`);
                 } else {
                     message.warning('未找到有效的戰利品，請檢查物品名稱或手動選擇');
                     logger.warn('No valid items found', { droppedItems, items });
@@ -457,7 +461,7 @@ const BossKillForm = () => {
             logger.error('Parse log failed', { error: err.message, stack: err.stack });
         }
     };
-    
+
     const onFinish = (values) => {
         if (values.item_names && values.item_names.length > 0) {
             setFormValues(values);
@@ -480,59 +484,71 @@ const BossKillForm = () => {
     const handleSubmit = async (values) => {
         setLoading(true);
         const itemNames = values.item_names || [];
-
-        const droppedItems = [];
-        for (const item of itemNames) {
-            const selectedItem = items.find(i => i.name === item.name);
-            if (!selectedItem) {
-                message.error(`未找到物品 ${item.name} 的等級信息`);
-                setLoading(false);
-                return;
-            }
-            droppedItems.push({
-                name: item.name,
-                type: selectedItem.type || 'equipment',
-                level: selectedItem.level,
-            });
-        }
-
-        const formData = new FormData();
-        formData.append('bossId', values.bossId);
-        formData.append('kill_time', values.kill_time.toISOString());
-        formData.append('dropped_items', JSON.stringify(droppedItems));
-        const attendeesArray = Array.isArray(values.attendees) ? values.attendees : [];
-        formData.append('attendees', JSON.stringify(attendeesArray));
-        formData.append('itemHolder', values.itemHolder || '');
-        formData.append('logText', logText);
-
-        if (fileList.length === 0) {
-            // Default image logic commented out
-        } else {
-            fileList.forEach(file => formData.append('screenshots', file.originFileObj));
-        }
+        const batchId = uuidv4(); // Generate a unique batch ID for this submission
 
         try {
-            const res = await axiosInstance.post('/api/boss-kills', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const formDataArray = [];
+            for (let i = 0; i < itemNames.length; i++) {
+                const item = itemNames[i];
+                const selectedItem = items.find(i => i.name === item.name);
+                if (!selectedItem) {
+                    message.error(`未找到物品 ${ item.name } 的等級信息`);
+                    setLoading(false);
+                    return;
+                }
 
-            const killId = res.data.results[0]?.kill_id;
-            if (killId) {
-                await axiosInstance.post(`/api/dkp/distribute/${killId}`, {});
-                logger.info('DKP distributed for kill', { killId });
+                const formData = new FormData();
+                formData.append('bossId', values.bossId);
+                formData.append('kill_time', values.kill_time.toISOString());
+                formData.append('dropped_items', JSON.stringify([{
+                    name: item.name,
+                    type: selectedItem.type || 'equipment',
+                    level: selectedItem.level,
+                }]));
+                formData.append('attendees', JSON.stringify(Array.isArray(values.attendees) ? values.attendees : []));
+                formData.append('itemHolder', values.itemHolder || '');
+                formData.append('logText', logText);
+                formData.append('batchId', batchId); // Add batchId to group records
+
+                // Attach the corresponding screenshot or default image
+                if (fileList[i]) {
+                    formData.append('screenshot', fileList[i].originFileObj);
+                } else {
+                    const defaultImage = await getDefaultImage();
+                    if (defaultImage) {
+                        formData.append('screenshot', defaultImage);
+                    }
+                }
+
+                formDataArray.push(formData);
             }
 
-            logger.info('Boss kill recorded', { killId });
-            alert(`擊殺記錄成功！ID: ${killId}`);
+            const responses = await Promise.all(formDataArray.map(formData =>
+                axiosInstance.post('/api/boss-kills', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                })
+            ));
+
+            const killIds = responses.map(res => res.data.results[0]?.kill_id).filter(id => id);
+            if (killIds.length > 0) {
+                await Promise.all(killIds.map(killId =>
+                    axiosInstance.post(`/api/dkp/distribute/${ killId } `, {})
+                ));
+                logger.info('DKP distributed for kills', { killIds });
+            }
+
+            logger.info('Boss kills recorded', { killIds, batchId });
+            alert(`擊殺記錄成功！ID: ${ killIds.join(', ') } `);
             form.resetFields();
             setFileList([]);
             setLogText('');
             form.setFieldsValue({ kill_time: null });
         } catch (err) {
-            message.error(`提交失敗: ${err.response?.data?.msg || err.message}`);
+            message.error(`提交失敗: ${ err.response?.data?.msg || err.message } `);
+            logger.error('Submit boss kills failed', { error: err.message, stack: err.stack });
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     const handleAddItem = async (values) => {
@@ -558,7 +574,7 @@ const BossKillForm = () => {
             setAddItemModalVisible(false);
             itemForm.resetFields();
         } catch (err) {
-            message.error(`添加新物品失敗: ${err.response?.data?.msg || err.message}`);
+            message.error(`添加新物品失敗: ${ err.response?.data?.msg || err.message } `);
         } finally {
             setLoading(false);
         }
@@ -566,7 +582,7 @@ const BossKillForm = () => {
 
     const uploadProps = {
         onChange: ({ fileList: newFileList }) => {
-            setFileList(newFileList.slice(-5));
+            setFileList(newFileList.slice(-8));
         },
         beforeUpload: handleBeforeUpload,
         onRemove: handleRemove,
@@ -584,7 +600,7 @@ const BossKillForm = () => {
                 reader.readAsDataURL(file.originFileObj || file);
             });
         },
-        maxCount: 5,
+        maxCount: 8,
         accept: 'image/jpeg,image/png',
     };
 
@@ -672,10 +688,7 @@ const BossKillForm = () => {
                             label={
                                 <span>
                                     貼上旅團日誌（可自動填寫表單）
-                                    <Text type="secondary" style={{ marginLeft: 8 }}>
-                                        格式示例：消滅時間 2025.07.13-21:47:21<br />
-                                        戰鬥參與者：玩家1,玩家2,玩家3 或 每行一個玩家名稱
-                                    </Text>
+                                    
                                 </span>
                             }
                             style={{ marginBottom: 16 }}
@@ -972,27 +985,28 @@ const BossKillForm = () => {
             </Modal>
 
             <style jsx>{`
-                .ant-upload-list-picture-card .ant-upload-list-item {
-                    margin: 8px;
-                    border: 1px solid #d9d9d9;
-                    borderRadius: 4px;
-                }
-                .ant-upload-list-picture-card .ant-upload-list-item-thumbnail img {
-                    object-fit: contain;
-                    width: 100%;
-                    height: 100%;
-                    border-radius: 4px;
-                }
-                .ant-upload-list-picture-card .ant-upload-list-item-name {
-                    display: none;
-                }
-                .ant-upload-list-picture-card .ant-upload-list-item-card-actions {
-                    background: rgba(0, 0, 0, 0.5);
-                }
-                .ant-upload-list-picture-card .ant-upload-list-item-card-actions-btn {
-                    opacity: 0.8;
-                }
-            `}</style>
+    .ant - upload - list - picture - card.ant - upload - list - item {
+    margin: 8px;
+    border: 1px solid #d9d9d9;
+    borderRadius: 4px;
+}
+                .ant - upload - list - picture - card.ant - upload - list - item - thumbnail img {
+    object - fit: contain;
+    width: 100 %;
+    height: 100 %;
+    border - radius: 4px;
+}
+                .ant - upload - list - picture - card.ant - upload - list - item - name {
+    display: none;
+}
+                .ant - upload - list - picture - card.ant - upload - list - item - card - actions {
+    background: rgba(0, 0, 0, 0.5);
+}
+                .ant - upload - list - picture - card.ant - upload - list - item - card - actions - btn {
+    opacity: 0.8;
+}
+`}
+            </style>
         </div>
     );
 };

@@ -2,10 +2,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Tree, Button, Modal, Form, Input, Select, message, Spin, Row, Col, Popconfirm, Card, Space, Typography, Upload, Alert, Dropdown, Menu } from 'antd';
 import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { getIconMapping, getIconNames } from '../components/IconMapping';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthProvider';
 import logger from '../utils/logger';
+import axiosInstance from '../utils/axiosInstance'; // 使用自定義的 axios 實例
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -75,7 +75,7 @@ const ManageMenu = () => {
     const fetchMenuItems = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/session/menu`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/session/menu`, {
                 headers: { 'x-auth-token': token },
                 withCredentials: true,
             });
@@ -211,12 +211,12 @@ const ManageMenu = () => {
         try {
             let response;
             if (editingItem) {
-                response = await axios.put(`${BASE_URL}/api/menu/${editingItem._id}`, formData, {
+                response = await axiosInstance.put(`${BASE_URL}/api/menu/${editingItem._id}`, formData, {
                     headers: { 'x-auth-token': token, 'Content-Type': 'multipart/form-data' },
                 });
                 message.success('菜單項更新成功');
             } else {
-                response = await axios.post(`${BASE_URL}/api/menu`, formData, {
+                response = await axiosInstance.post(`${BASE_URL}/api/menu`, formData, {
                     headers: { 'x-auth-token': token, 'Content-Type': 'multipart/form-data' },
                 });
                 message.success('菜單項創建成功');
@@ -238,7 +238,7 @@ const ManageMenu = () => {
     const handleDelete = async (id) => {
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/menu/${id}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/menu/${id}`, {
                 headers: { 'x-auth-token': token },
             });
             message.success('菜單項刪除成功');
@@ -261,7 +261,7 @@ const ManageMenu = () => {
     const handleSendMessage = async (values) => {
         setLoading(true);
         try {
-            const response = await axios.post(`${BASE_URL}/send-discord-message`, {
+            const response = await axiosInstance.post(`${BASE_URL}/send-discord-message`, {
                 discordId: selectedUserId,
                 message: values.message,
             }, {
@@ -357,7 +357,7 @@ const ManageMenu = () => {
         setTreeData(data);
 
         try {
-            await axios.put(`${BASE_URL}/api/menu/reorder`, { treeData: data }, {
+            await axiosInstance.put(`${BASE_URL}/api/menu/reorder`, { treeData: data }, {
                 headers: { 'x-auth-token': token },
             });
             message.success('菜單順序已保存');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Spin, Alert, Pagination, Row, Col, Popconfirm, Image, Tag, Card, Space, Typography } from 'antd';
 import { SearchOutlined, DeleteOutlined, EditOutlined, PlusOutlined, EyeOutlined, RedoOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -67,7 +67,7 @@ const ManageItems = () => {
 
     const fetchItemLevels = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/items/item-levels`);
+            const res = await axiosInstance.get(`${BASE_URL}/api/items/item-levels`);
             setItemLevels(res.data);
         } catch (err) {
             console.error('Fetch item levels error:', err);
@@ -78,7 +78,7 @@ const ManageItems = () => {
     const fetchItems = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/items`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/items`, {
                 params: {
                     search: filters.search || undefined,
                     type: filters.type === 'all' ? undefined : filters.type,
@@ -135,12 +135,12 @@ const ManageItems = () => {
         setLoading(true);
         try {
             if (editingItem) {
-                await axios.put(`${BASE_URL}/api/items/${editingItem._id}`, values, {
+                await axiosInstance.put(`${BASE_URL}/api/items/${editingItem._id}`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('物品更新成功');
             } else {
-                await axios.post(`${BASE_URL}/api/items`, values, {
+                await axiosInstance.post(`${BASE_URL}/api/items`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('物品創建成功');
@@ -161,7 +161,7 @@ const ManageItems = () => {
         const token = localStorage.getItem('token');
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/items/${id}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/items/${id}`, {
                 headers: { 'x-auth-token': token },
             });
             message.success('物品刪除成功');
@@ -184,7 +184,7 @@ const ManageItems = () => {
         const itemNames = selectedItems.map(item => item.name).join(', ');
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/items/batch-delete`, {
+            await axiosInstance.delete(`${BASE_URL}/api/items/batch-delete`, {
                 headers: { 'x-auth-token': token },
                 data: { ids: selectedRowKeys },
             });

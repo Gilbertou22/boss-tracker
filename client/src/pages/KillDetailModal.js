@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Button, Upload, message, Spin, Select, Image, Descriptions, Tag, Space, Popconfirm } from 'antd';
 import { UploadOutlined, DeleteOutlined, ClockCircleOutlined, UserOutlined, GiftOutlined, TagOutlined, AppstoreOutlined, TeamOutlined, CheckOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import moment from 'moment';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 
@@ -69,7 +69,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
 
     const fetchCurrentUser = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
             setCurrentUser(res.data.character_name);
@@ -82,7 +82,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
     const fetchKillData = async (killId) => {
         try {
             setLoading(true);
-            const res = await axios.get(`${BASE_URL}/api/boss-kills/${killId}`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
             const detail = res.data;
@@ -99,7 +99,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
 
     const fetchApplications = async (killId) => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/applications/by-kill/${killId}`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/applications/by-kill/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
             setApplications(res.data || []);
@@ -111,7 +111,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
 
     const fetchAllUsers = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/users`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users`, {
                 headers: { 'x-auth-token': token },
             });
             setAllUsers(res.data);
@@ -138,7 +138,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                 }
             });
 
-            const res = await axios.put(`${BASE_URL}/api/boss-kills/${killData._id}`, formData, {
+            const res = await axiosInstance.put(`${BASE_URL}/api/boss-kills/${killData._id}`, formData, {
                 headers: {
                     'x-auth-token': token,
                     'Content-Type': 'multipart/form-data',
@@ -164,7 +164,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
     const handleApproveApplication = async (applicationId) => {
         try {
             setLoading(true);
-            const res = await axios.post(`${BASE_URL}/api/applications/${applicationId}/approve`, {}, {
+            const res = await axiosInstance.post(`${BASE_URL}/api/applications/${applicationId}/approve`, {}, {
                 headers: { 'x-auth-token': token },
             });
             message.success(res.data.msg);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Select, DatePicker, Pagination, Card, Spin, Alert, Modal, Descriptions, message, Tag } from 'antd';
 import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import moment from 'moment';
 import logger from '../utils/logger';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -31,7 +31,7 @@ const LogViewer = () => {
         setLoading(true);
         try {
             logger.info('Fetching logs', { filters });
-            const res = await axios.get(`${BASE_URL}/api/logs/query`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/logs/query`, {
                 headers: { 'x-auth-token': token },
                 params: {
                     level: filters.level === 'all' ? undefined : filters.level,

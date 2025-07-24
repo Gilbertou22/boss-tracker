@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Spin, Alert, Pagination, Row, Col, Popconfirm, Tag, Card } from 'antd';
 import { SearchOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import logger from '../utils/logger'; // 引入前端日誌工具
+import axiosInstance from '../utils/axiosInstance'; // 假設你有一個 axiosInstance 文件來配置 axios
 
 const { Option } = Select;
 
@@ -27,7 +26,7 @@ const ManageItemLevels = () => {
     const fetchItemLevels = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/items/item-levels`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/items/item-levels`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
        
@@ -53,12 +52,12 @@ const ManageItemLevels = () => {
         setLoading(true);
         try {
             if (editingLevel) {
-                await axios.put(`${BASE_URL}/api/items/item-levels/${editingLevel._id}`, values, {
+                await axiosInstance.put(`${BASE_URL}/api/items/item-levels/${editingLevel._id}`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('物品等級更新成功');
             } else {
-                await axios.post(`${BASE_URL}/api/items/item-levels`, values, {
+                await axiosInstance.post(`${BASE_URL}/api/items/item-levels`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('物品等級創建成功');
@@ -79,7 +78,7 @@ const ManageItemLevels = () => {
         const token = localStorage.getItem('token');
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/items/item-levels/${id}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/items/item-levels/${id}`, {
                 headers: { 'x-auth-token': token },
             });
             message.success('物品等級刪除成功');
@@ -100,7 +99,7 @@ const ManageItemLevels = () => {
         }
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/items/item-levels/batch-delete`, {
+            await axiosInstance.delete(`${BASE_URL}/api/items/item-levels/batch-delete`, {
                 headers: { 'x-auth-token': token },
                 data: { ids: selectedRowKeys },
             });

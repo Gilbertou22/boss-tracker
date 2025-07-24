@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Spin, Switch, Row, Col, Alert, InputNumber } from 'antd';
 import MarkdownEditor from 'react-markdown-editor-lite';
 import MarkdownIt from 'markdown-it';
-import axios from 'axios';
 import 'react-markdown-editor-lite/lib/index.css';
-import logger from '../utils/logger'; // 引入前端日誌工具
+import axiosInstance from '../utils/axiosInstance';
 
 const BASE_URL = process.env.REACT_APP_API_URL || '';
 
@@ -28,7 +27,7 @@ const GuildSettings = () => {
         }
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/guilds/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/guilds/me`, {
                 headers: { 'x-auth-token': token },
             });
        
@@ -86,7 +85,7 @@ const GuildSettings = () => {
                 withdrawMinAmount: values.withdrawMinAmount,
             };
            
-            const res = await axios.put(`${BASE_URL}/api/guilds/${guild._id}`, {
+            const res = await axiosInstance.put(`${BASE_URL}/api/guilds/${guild._id}`, {
                 password: values.password,
                 announcement: values.announcement || '',
                 settings,

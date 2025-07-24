@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, message, Card, Spin, Typography } from 'antd';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { loadCaptchaEnginge, LoadCanvasTemplate, validateCaptcha } from 'react-simple-captcha';
 import { useAuth } from '../AuthProvider';
 import logger from '../utils/logger';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Text } = Typography;
 
@@ -21,7 +21,7 @@ const Login = () => {
     useEffect(() => {
         const fetchClientIp = async () => {
             try {
-                const res = await axios.get(`${BASE_URL}/api/auth/client-ip`, {
+                const res = await axiosInstance.get(`${BASE_URL}/api/auth/client-ip`, {
                     withCredentials: true,
                 });
                 setClientIp(res.data.ip);
@@ -80,7 +80,7 @@ const Login = () => {
                 return;
             }
 
-            const res = await axios.post(`${BASE_URL}/api/auth/login`, trimmedValues, {
+            const res = await axiosInstance.post(`${BASE_URL}/api/auth/login`, trimmedValues, {
                 withCredentials: true,
             });
 

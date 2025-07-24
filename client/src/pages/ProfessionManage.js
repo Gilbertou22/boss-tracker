@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, message, Modal, Form, Input, Select, Spin, Card, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { icons } from '../assets/icons';
 import moment from 'moment';
+import axiosInstance from '../utils/axiosInstance';
 
 const { Option } = Select;
 const BASE_URL = process.env.REACT_APP_API_URL || '';
@@ -31,7 +31,7 @@ const ProfessionManage = () => {
 
     const fetchUserInfo = async () => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/users/me`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
             setRoles(res.data.roles); // 儲存 roles 陣列
@@ -44,7 +44,7 @@ const ProfessionManage = () => {
     const fetchProfessions = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/professions`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/professions`, {
                 headers: { 'x-auth-token': token },
             });
             setProfessions(res.data);
@@ -72,13 +72,13 @@ const ProfessionManage = () => {
             setLoading(true);
             if (editingProfession) {
                 // 編輯職業
-                await axios.put(`${BASE_URL}/api/professions/${editingProfession._id}`, values, {
+                await axiosInstance.put(`${BASE_URL}/api/professions/${editingProfession._id}`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('職業更新成功');
             } else {
                 // 新增職業
-                await axios.post(`${BASE_URL}/api/professions`, values, {
+                await axiosInstance.post(`${BASE_URL}/api/professions`, values, {
                     headers: { 'x-auth-token': token },
                 });
                 message.success('職業創建成功');

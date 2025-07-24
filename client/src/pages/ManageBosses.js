@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, Select, message, Spin, Alert, Pagination, Row, Col, Popconfirm, Card, Space, Typography, InputNumber } from 'antd';
 import { SearchOutlined, DeleteOutlined, EditOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstance from '../utils/axiosInstance'; // 假設你有一個 axiosInstance 文件來配置 axios
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -31,7 +31,7 @@ class ErrorBoundary extends React.Component {
 // 獲取 CSRF Token 的函數
 const fetchCsrfToken = async () => {
     try {
-        const res = await axios.get(`${BASE_URL}/csrf-token`, {
+        const res = await axiosInstance.get(`${BASE_URL}/csrf-token`, {
             withCredentials: true, // 確保發送 Cookie
         });
         return res.data.csrfToken;
@@ -65,7 +65,7 @@ const ManageBosses = () => {
     const fetchBosses = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${BASE_URL}/api/bosses`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/bosses`, {
                 params: {
                     search: filters.search || undefined,
                     difficulty: filters.difficulty === 'all' ? undefined : filters.difficulty,
@@ -119,7 +119,7 @@ const ManageBosses = () => {
 
     const fetchDKPSetting = async (bossId) => {
         try {
-            const res = await axios.get(`${BASE_URL}/api/dkp/${bossId}`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/dkp/${bossId}`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') },
             });
             return res.data.dkpPoints || 0;
@@ -135,7 +135,7 @@ const ManageBosses = () => {
         try {
             if (editingBoss) {
                 // 更新首領和 DKP 點數
-                await axios.put(`${BASE_URL}/api/bosses/${editingBoss._id}`, {
+                await axiosInstance.put(`${BASE_URL}/api/bosses/${editingBoss._id}`, {
                     name: values.name,
                     description: values.description,
                     difficulty: values.difficulty,
@@ -147,7 +147,7 @@ const ManageBosses = () => {
                 message.success('首領更新成功');
             } else {
                 // 創建首領並設置 DKP 點數
-                await axios.post(`${BASE_URL}/api/bosses`, {
+                await axiosInstance.post(`${BASE_URL}/api/bosses`, {
                     name: values.name,
                     description: values.description,
                     difficulty: values.difficulty,
@@ -173,7 +173,7 @@ const ManageBosses = () => {
         const token = localStorage.getItem('token');
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/bosses/${id}`, {
+            await axiosInstance.delete(`${BASE_URL}/api/bosses/${id}`, {
                 headers: { 'x-auth-token': token },
             });
             message.success('首領刪除成功');
@@ -195,7 +195,7 @@ const ManageBosses = () => {
         const bossNames = selectedBosses.map(boss => boss.name).join(', ');
         setLoading(true);
         try {
-            await axios.delete(`${BASE_URL}/api/bosses/batch-delete`, {
+            await axiosInstance.delete(`${BASE_URL}/api/bosses/batch-delete`, {
                 headers: { 'x-auth-token': token },
                 data: { ids: selectedRowKeys },
             });

@@ -61,6 +61,7 @@ const BossKillSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    batchId: { type: String, default: null }, // Add batchId field
 }, {
     strictPopulate: false,
 });
