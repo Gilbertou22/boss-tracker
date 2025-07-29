@@ -30,13 +30,18 @@ const DiamondCalculator = () => {
         return;
       }
       try {
-        //console.log('Fetching guilds...');
+        // console.log('Fetching guilds...');
         const guildsResponse = await axios.get(`${BASE_URL}/api/guilds`, {
           headers: { 'x-auth-token': token },
           cache: 'no-store',
         });
         const guilds = guildsResponse.data;
 
+        if (!Array.isArray(guilds)) {
+          setError('旅團數據格式錯誤，請聯繫管理員');
+          setLoading(false);
+          return;
+        }
         if (guilds.length === 0) {
           setError('無可用旅團，請先創建一個旅團');
           setLoading(false);
@@ -51,11 +56,18 @@ const DiamondCalculator = () => {
         const singleGuildId = guilds[0]._id;
         setGuildId(singleGuildId);
 
-        const usersResponse = await axios.get(`${BASE_URL}/api/users?guildId=${singleGuildId}`, {
+        // Fetch all users by setting a high pageSize
+        const usersResponse = await axios.get(`${BASE_URL}/api/users?guildId=${singleGuildId}&pageSize=1000`, {
           headers: { 'x-auth-token': token },
           cache: 'no-store',
         });
-        const activeMembers = usersResponse.data
+        if (!usersResponse.data || !Array.isArray(usersResponse.data.data)) {
+          setError('用戶數據格式錯誤，請聯繫管理員');
+          setLoading(false);
+          return;
+        }
+
+        const activeMembers = usersResponse.data.data
           .filter(user => user.status === 'active')
           .map(user => ({
             id: user._id,
@@ -69,7 +81,7 @@ const DiamondCalculator = () => {
           headers: { 'x-auth-token': token },
           cache: 'no-store',
         });
-        const attendanceData = attendanceResponse.data.attendance;
+        const attendanceData = attendanceResponse.data.attendance || [];
 
         const membersWithAttendance = activeMembers.map(member => {
           const attendance = attendanceData.find(a => a.character_name === member.name) || {
@@ -98,7 +110,6 @@ const DiamondCalculator = () => {
     };
     fetchData();
   }, [token]);
-
   // 排序成員
   const sortedMembers = useMemo(() => {
     return [...members].sort((a, b) => {

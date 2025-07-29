@@ -265,52 +265,7 @@ const Home = () => {
                             </Card>
                         </Col>
                     </Row>
-
-                    {/* 最近通知模塊 */}
-                    <Card
-                        title={
-                            <Space>
-                                <BellOutlined style={{ color: '#1890ff' }} />
-                                <Title level={4} style={{ margin: 0, color: '#1890ff' }}>最近通知</Title>
-                            </Space>
-                        }
-                        style={{ marginBottom: '24px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}
-                    >
-                        {notifications.length > 0 ? (
-                            <List
-                                itemLayout="horizontal"
-                                dataSource={notifications.slice(0, 3)}
-                                renderItem={(notification) => (
-                                    <List.Item
-                                        onClick={() => handleNotificationClick(notification)}
-                                        style={{ cursor: 'pointer', padding: '12px 0', transition: 'background-color 0.3s' }}
-                                        className="notification-item"
-                                    >
-                                        <List.Item.Meta
-                                            avatar={<Avatar icon={<BellOutlined />} style={{ backgroundColor: notification.read ? '#f0f0f0' : '#ff4d4f' }} />}
-                                            title={
-                                                <Space>
-                                                    <Text>{notification.message}</Text>
-                                                    {!notification.read && <Badge dot />}
-                                                </Space>
-                                            }
-                                            description={
-                                                <Text type="secondary">{moment(notification.createdAt).fromNow()}</Text>
-                                            }
-                                        />
-                                    </List.Item>
-                                )}
-                            />
-                        ) : (
-                            <Text type="secondary">暫無通知</Text>
-                        )}
-                        <div style={{ textAlign: 'center', marginTop: '10px' }}>
-                            <Button type="link" onClick={() => navigate('/notifications')}>
-                                查看所有通知
-                            </Button>
-                        </div>
-                    </Card>
-
+                      
                     {/* 熱門拍賣模塊 */}
                     <Card
                         title={

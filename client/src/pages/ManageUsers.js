@@ -494,7 +494,7 @@ const ManageUsers = () => {
 
     const userColumns = [
         { title: '角色名稱', dataIndex: 'character_name', key: 'character_name', width: 150 },
-        { title: '戰鬥等級', dataIndex: 'raid_level', key: 'raid_level', width: 120 },
+        { title: '討伐等級', dataIndex: 'raid_level', key: 'raid_level', width: 120 },
         { title: '戰力', dataIndex: 'combatPower', key: 'combatPower', width: 120 },
         { title: '鑽石數', dataIndex: 'diamonds', key: 'diamonds', render: (text) => formatNumber(text), width: 120 },
         {
@@ -717,9 +717,7 @@ const ManageUsers = () => {
                                         cancelText="否"
                                         disabled={loading || selectedRowKeys.length === 0 || !token}
                                     >
-                                        <Button type="danger" icon={<StopOutlined />} disabled={loading || selectedRowKeys.length === 0 || !token}>
-                                            批量設為 DISABLED
-                                        </Button>
+                                      
                                     </Popconfirm>
                                 </>
                             )}
@@ -881,16 +879,16 @@ const ManageUsers = () => {
                                 <Col xs={24} sm={12}>
                                     <Form.Item
                                         name="raid_level"
-                                        label="戰鬥等級"
+                                        label="討伐等級"
                                         rules={[
                                             {
                                                 validator: (_, value) => {
                                                     if (value === undefined || value === null || value === '') {
-                                                        return Promise.reject(new Error('請輸入戰鬥等級！'));
+                                                        return Promise.reject(new Error('請輸入討伐等級！'));
                                                     }
                                                     const numValue = parseInt(value, 10);
                                                     if (isNaN(numValue) || numValue < 0) {
-                                                        return Promise.reject(new Error('戰鬥等級必須為非負數！'));
+                                                        return Promise.reject(new Error('討伐等級必須為非負數！'));
                                                     }
                                                     return Promise.resolve();
                                                 },
@@ -1048,7 +1046,7 @@ const ManageUsers = () => {
                         <Descriptions.Item label="世界名稱">{selectedUser.world_name}</Descriptions.Item>
                         <Descriptions.Item label="角色名稱">{selectedUser.character_name}</Descriptions.Item>
                         <Descriptions.Item label="Discord ID">{selectedUser.discord_id || '無'}</Descriptions.Item>
-                        <Descriptions.Item label="戰鬥等級">{selectedUser.raid_level}</Descriptions.Item>
+                        <Descriptions.Item label="討伐等級">{selectedUser.raid_level}</Descriptions.Item>
                         <Descriptions.Item label="戰力">{selectedUser.combatPower}</Descriptions.Item>
                         <Descriptions.Item label="鑽石數">{formatNumber(selectedUser.diamonds)}💎</Descriptions.Item>
                         <Descriptions.Item label="職業">

@@ -1,3 +1,4 @@
 {
-  "editor.fontFamily": "'Sarasa Mono TC', Consolas, 'Courier New', monospace"
+  "editor.fontFamily": "'Sarasa Mono TC', Consolas, 'Courier New', monospace",
+  "editor.fontSize": 15
 }

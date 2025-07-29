@@ -123,12 +123,13 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
         if (!itemDoc || !itemDoc.level) {
             return res.status(400).json({
                 code: 400,
-                msg: `物品 ${ item.name } 未找到或未定義等級`,
+                msg: `物品 ${item.name} 未找到或未定義等級`,
                 suggestion: '請確保物品存在於 Item 表中且已設置等級',
             });
         }
 
         const parsedAttendees = typeof attendees === 'string' ? JSON.parse(attendees) : attendees;
+       
         if (!Array.isArray(parsedAttendees) || !parsedAttendees.every(item => typeof item === 'string')) {
             return res.status(400).json({
                 code: 400,
@@ -163,7 +164,7 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
         if (logText && process.env.SEND_DISCORD_MESSAGE === 'true' && batchId) {
             const batchKills = await BossKill.find({ batchId }).populate('bossId', 'name').lean();
             const discordClient = req.app.get('discordClient');
-            const channelId = process.env.DISCORD_BOSS_KILL_CHANNEL_ID || '1359700987539099799';
+            const channelId = process.env.DISCORD_BOSS_KILL_CHANNEL_ID || '';
             if (discordClient && channelId) {
                 try {
                     const channel = await discordClient.channels.fetch(channelId);
@@ -179,64 +180,74 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
                             .setTitle('新的首領消滅記錄')
                             .setDescription(`\`\`\`\n${formattedLogText}\n\`\`\``)
                             .addFields(
-    { name: '首領', value: boss.name || '未知', inline: true },
-    { name: '擊殺時間', value: moment(kill_time).format('YYYY-MM-DD HH:mm'), inline: true },
-    { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
-)
-    .setTimestamp(new Date(kill_time))
-    .setFooter({ text: '點擊物品按鈕進行申請或補登' });
+                                { name: '首領', value: boss.name || '未知', inline: true },
+                                { name: '擊殺時間', value: moment(kill_time).format('YYYY-MM-DD HH:mm'), inline: true },
+                                { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
+                            )
+                            .setTimestamp(new Date(kill_time))
+                            .setFooter({ text: process.env.DISCORD_BUTTONS_ENABLED === 'true' ? '⚠️點擊物品按鈕進行申請或補登⚠️' : '⚠️請至網站進行申請或補登⚠️' });
 
-const components = [];
-let currentRow = new ActionRowBuilder();
-batchKills.forEach((kill, index) => {
-    const item = kill.dropped_items[0];
-    embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+                        // 根據 DISCORD_BUTTONS_ENABLED 和 showButtons 決定是否添加按鈕
+                        const components = [];
+                        if (process.env.DISCORD_BUTTONS_ENABLED === 'true' && batchKills.length > 0) {
+                            let currentRow = new ActionRowBuilder();
+                            items.forEach((item, index) => {
+                                embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
 
-    const button = new ButtonBuilder()
-        .setCustomId(`apply_item_${kill._id}_${item._id.toString()}`)
-        .setLabel(`申請 ${item.name}`)
-        .setStyle(ButtonStyle.Primary);
+                                const button = new ButtonBuilder()
+                                    .setCustomId(`apply_item_${bossKill._id}_${item._id.toString()}`)
+                                    .setLabel(`申請 ${item.name}`)
+                                    .setStyle(ButtonStyle.Primary);
 
-    currentRow.addComponents(button);
+                                currentRow.addComponents(button);
 
-    if (currentRow.components.length === 5 || index === batchKills.length - 1) {
-        components.push(currentRow);
-        currentRow = new ActionRowBuilder();
-    }
-});
+                                // 每行最多5個按鈕
+                                if (currentRow.components.length === 5 || index === items.length - 1) {
+                                    components.push(currentRow);
+                                    currentRow = new ActionRowBuilder();
+                                }
+                            });
 
-const addAttendeeButton = new ButtonBuilder()
-    .setCustomId(`add_attendee_${bossKill._id}`)
-    .setLabel('補登申請')
-    .setStyle(ButtonStyle.Secondary);
-currentRow.addComponents(addAttendeeButton);
-if (currentRow.components.length > 0) {
-    components.push(currentRow);
-}
-
-await channel.send({ embeds: [embed], components });
-logger.info(`Discord message sent to channel ${channelId} for batch ${batchId}`);
+                            // 添加補登按鈕到最後一行
+                            const addAttendeeButton = new ButtonBuilder()
+                                .setCustomId(`add_attendee_${bossKill._id}`)
+                                .setLabel('補登申請')
+                                .setStyle(ButtonStyle.Secondary);
+                            currentRow.addComponents(addAttendeeButton);
+                            if (currentRow.components.length > 0) {
+                                components.push(currentRow);
+                            }
+                        } else {
+                            // 無按鈕時仍顯示物品
+                            /*
+                            items.forEach((item, index) => {
+                                embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+                            });
+                            */
+                        }
+                        await channel.send({ embeds: [embed], components });
+                        logger.info(`Discord message sent to channel ${channelId} for batch ${batchId}`);
                     } else {
-    logger.error(`Channel ${channelId} not found`);
-}
+                        logger.error(`Channel ${channelId} not found`);
+                    }
                 } catch (discordErr) {
-    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
-}
+                    logger.error('Error sending Discord message:', { error: discordErr.message, stack: discordErr.stack });
+                }
             } else {
-    logger.warn('Discord client or channelId missing; skipping Discord notification');
-}
+                logger.warn('Discord client or channelId missing; skipping Discord notification');
+            }
         }
 
-res.status(201).json({ msg: '擊殺記錄創建成功', results: [{ kill_id: bossKill._id }] });
+        res.status(201).json({ msg: '擊殺記錄創建成功', results: [{ kill_id: bossKill._id }] });
     } catch (err) {
-    console.error('Error saving boss kill:', err);
-    res.status(500).json({
-        code: 500,
-        msg: '保存擊殺記錄失敗',
-        detail: err.message || '伺服器處理錯誤',
-        suggestion: '請稍後重試或聯繫管理員。',
-    });
-}
+        console.error('Error saving boss kill:', err);
+        res.status(500).json({
+            code: 500,
+            msg: '保存擊殺記錄失敗',
+            detail: err.message || '伺服器處理錯誤',
+            suggestion: '請稍後重試或聯繫管理員。',
+        });
+    }
 });
 
 // Query boss kill records (supports filtering and pagination)
