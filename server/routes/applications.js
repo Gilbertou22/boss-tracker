@@ -53,7 +53,7 @@ router.post('/', auth, async (req, res) => {
         // 如果有 CAPTCHA，驗證它（假設使用 reCAPTCHA）
         if (captcha) {
             // 模擬 CAPTCHA 驗證邏輯（需要根據您的 CAPTCHA 實現替換）
-            const isValidCaptcha = true; // 替換為實際的 CAPTCHA 驗證邏輯
+            const isValidCaptcha = (captcha === process.env.BOT_SECRET); // 替換為實際的 CAPTCHA 驗證邏輯
             if (!isValidCaptcha) {
                 return res.status(400).json({
                     code: 400,

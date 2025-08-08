@@ -185,14 +185,14 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
                                 { name: '參與者', value: parsedAttendees.join(', ') || '無', inline: false }
                             )
                             .setTimestamp(new Date(kill_time))
-                            .setFooter({ text: process.env.DISCORD_BUTTONS_ENABLED === 'true' ? '⚠️點擊物品按鈕進行申請或補登⚠️' : '⚠️請至網站進行申請或補登⚠️' });
+                            //.setFooter({ text: process.env.DISCORD_BUTTONS_ENABLED === 'true' ? '⚠️點擊物品按鈕進行申請或補登⚠️' : '⚠️請至網站進行申請或補登⚠️' });
 
                         // 根據 DISCORD_BUTTONS_ENABLED 和 showButtons 決定是否添加按鈕
                         const components = [];
                         if (process.env.DISCORD_BUTTONS_ENABLED === 'true' && batchKills.length > 0) {
                             let currentRow = new ActionRowBuilder();
-                            items.forEach((item, index) => {
-                                embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+                           bossKill.dropped_items.forEach((item, index) => {
+                                embed.addFields({ name: `掉落物品 `, value: item.name, inline: true });
 
                                 const button = new ButtonBuilder()
                                     .setCustomId(`apply_item_${bossKill._id}_${item._id.toString()}`)
@@ -202,7 +202,7 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
                                 currentRow.addComponents(button);
 
                                 // 每行最多5個按鈕
-                                if (currentRow.components.length === 5 || index === items.length - 1) {
+                                if (currentRow.components.length === 5 || index === bossKill.dropped_items.length - 1) {
                                     components.push(currentRow);
                                     currentRow = new ActionRowBuilder();
                                 }
@@ -213,17 +213,17 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
                                 .setCustomId(`add_attendee_${bossKill._id}`)
                                 .setLabel('補登申請')
                                 .setStyle(ButtonStyle.Secondary);
-                            currentRow.addComponents(addAttendeeButton);
+                            //currentRow.addComponents(addAttendeeButton);
                             if (currentRow.components.length > 0) {
                                 components.push(currentRow);
                             }
                         } else {
                             // 無按鈕時仍顯示物品
-                            /*
-                            items.forEach((item, index) => {
-                                embed.addFields({ name: `掉落物品 ${index + 1}`, value: item.name, inline: true });
+                            
+                            bossKill.dropped_items.forEach((item, index) => {
+                                embed.addFields({ name: `掉落物品 `, value: item.name, inline: true });
                             });
-                            */
+                            
                         }
                         await channel.send({ embeds: [embed], components });
                         logger.info(`Discord message sent to channel ${channelId} for batch ${batchId}`);

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, DatePicker, Button, Upload, message, Spin, Select, Image, Descriptions, Tag, Space, Popconfirm } from 'antd';
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { Modal, Form, Input, DatePicker, Button, Upload, message, Spin, Select, Image, Descriptions, Tag, Space, Popconfirm, Segmented } from 'antd';
 import { UploadOutlined, DeleteOutlined, ClockCircleOutlined, UserOutlined, GiftOutlined, TagOutlined, AppstoreOutlined, TeamOutlined, CheckOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axiosInstance from '../utils/axiosInstance';
+import { icons } from '../assets/icons';
 
 const { Option } = Select;
 
@@ -17,6 +19,15 @@ const colorMapping = {
     '金色': '#ffd700',
 };
 
+const professionToIcon = {
+    '幻影劍士': 'classMirageblade',
+    '香射手': 'classIncensearcher',
+    '咒文刻印使': 'classRunescribe',
+    '執行官': 'classEnforcer',
+    '太陽監視者': 'classSolarsentinel',
+    '深淵放逐者': 'classAbyssrevenant',
+};
+
 const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initialEditing = false }) => {
     const [form] = Form.useForm();
     const [editing, setEditing] = useState(initialEditing);
@@ -25,19 +36,32 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
     const [attendees, setAttendees] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
-    const [updatedKillData, setUpdatedKillData] = useState(killData);
     const [role, setRole] = useState(null);
     const [applications, setApplications] = useState([]);
+    const [updatedKillData, setUpdatedKillData] = useState(killData);
+    const [displayMode, setDisplayMode] = useState('grouped'); // New state for display mode
 
     useEffect(() => {
-        if (visible) {
-            fetchCurrentUser();
-            if (killData && killData._id) {
-                fetchKillData(killData._id);
-                fetchApplications(killData._id);
+        const loadData = async () => {
+            if (!visible || !token) {
+                console.warn('Modal not visible or token missing:', { visible, token });
+                return;
             }
-        }
-    }, [visible, killData]);
+            setLoading(true);
+            try {
+                await Promise.all([fetchCurrentUser(), fetchAllUsers()]);
+                if (killData && killData._id) {
+                    await Promise.all([fetchKillData(killData._id), fetchApplications(killData._id)]);
+                }
+            } catch (err) {
+                console.error('Error loading data:', err);
+                message.error('載入數據失敗');
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [visible, killData, token]);
 
     useEffect(() => {
         if (updatedKillData) {
@@ -67,33 +91,52 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
         }
     }, [editing]);
 
+    const userMap = useMemo(() => {
+        console.log('Mapping all users to userMap:', allUsers);
+        if (!Array.isArray(allUsers)) {
+            console.warn('allUsers is not an array:', allUsers);
+            return {};
+        }
+        const map = allUsers.reduce((acc, user) => {
+            if (user.character_name) {
+                acc[user.character_name] = user;
+            } else {
+                console.warn('User missing character_name:', user);
+            }
+            return acc;
+        }, {});
+        console.log('Created userMap:', map);
+        return map;
+    }, [allUsers]);
+
     const fetchCurrentUser = async () => {
         try {
             const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
+            console.log('Current user data:', res.data);
             setCurrentUser(res.data.character_name);
             setRole(res.data.role);
         } catch (err) {
+            console.error('Error fetching current user:', err.response?.data || err);
             message.error('無法獲取當前用戶信息');
         }
     };
 
     const fetchKillData = async (killId) => {
         try {
-            setLoading(true);
             const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
+            console.log('Kill data:', res.data);
             const detail = res.data;
             detail.screenshots = detail.screenshots
                 ? detail.screenshots.map(src => (src ? `${BASE_URL}/${src.replace('./', '')}` : ''))
                 : [];
             setUpdatedKillData(detail);
         } catch (err) {
+            console.error('Error fetching kill data:', err.response?.data || err);
             message.error(`載入詳情失敗: ${err.response?.data?.msg || err.message}`);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -102,8 +145,10 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.get(`${BASE_URL}/api/applications/by-kill/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
+            console.log('Applications data:', res.data);
             setApplications(res.data || []);
         } catch (err) {
+            console.error('Error fetching applications:', err.response?.data || err);
             message.error('無法載入申請記錄');
             setApplications([]);
         }
@@ -111,12 +156,17 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
 
     const fetchAllUsers = async () => {
         try {
-            const res = await axiosInstance.get(`${BASE_URL}/api/users`, {
+            const res = await axiosInstance.get(`${BASE_URL}/api/users?noPagination=true`, {
                 headers: { 'x-auth-token': token },
             });
-            setAllUsers(res.data);
+            console.log('Raw API response:', res);
+            const users = Array.isArray(res.data.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+            console.log('Fetched users:', users);
+            setAllUsers(users);
         } catch (err) {
+            console.error('Error fetching all users:', err.response?.data || err);
             message.error('無法載入用戶列表');
+            setAllUsers([]);
         }
     };
 
@@ -144,9 +194,11 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                     'Content-Type': 'multipart/form-data',
                 },
             });
+            console.log('Update response:', res.data);
             message.success(res.data.msg || '更新成功！');
             onUpdate();
         } catch (err) {
+            console.error('Error submitting form:', err.response?.data || err);
             message.error(`更新失敗: ${err.response?.data?.msg || err.message}`);
         } finally {
             setLoading(false);
@@ -167,10 +219,12 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.post(`${BASE_URL}/api/applications/${applicationId}/approve`, {}, {
                 headers: { 'x-auth-token': token },
             });
+            console.log('Approve application response:', res.data);
             message.success(res.data.msg);
             fetchKillData(updatedKillData._id);
             fetchApplications(updatedKillData._id);
         } catch (err) {
+            console.error('Error approving application:', err.response?.data || err);
             message.error(`批准申請失敗: ${err.response?.data?.msg || err.message}`);
         } finally {
             setLoading(false);
@@ -178,7 +232,63 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
     };
 
     const renderDetailView = () => {
-        if (!updatedKillData) return null;
+        if (!updatedKillData) {
+            console.warn('No updatedKillData available');
+            return null;
+        }
+
+        console.log('Kill data attendees:', updatedKillData.attendees);
+
+        // Group attendees by profession for grouped view
+        const groupedAttendees = updatedKillData.attendees?.reduce((acc, attendee) => {
+            const user = userMap[attendee] || null;
+            const professionName = user?.profession?.name || '未知職業';
+            if (!acc[professionName]) {
+                acc[professionName] = [];
+            }
+            acc[professionName].push(attendee);
+            return acc;
+        }, {}) || {};
+
+        // Render individual attendee tag
+        const renderAttendeeTag = (attendee, index) => {
+            const isCurrentUser = currentUser && attendee === currentUser;
+            console.log('Attendee:', attendee, 'isCurrentUser:', isCurrentUser);
+            console.log('User Map:', userMap);
+            const user = userMap[attendee] || null;
+            const professionName = user?.profession?.name || null;
+            console.log('User:', user, 'Profession:', professionName);
+            const iconKey = professionName ? professionToIcon[professionName] : null;
+            const IconSrc = iconKey ? icons[iconKey] : null;
+            const iconColor = isCurrentUser ? '#669126' : '#1890ff';
+            return (
+                <Tag
+                    key={index}
+                    icon={
+                        IconSrc ? (
+                            <img
+                                src={IconSrc}
+                                style={{ marginRight: 4, width: '1.5em', height: '1.5em', verticalAlign: 'middle' }}
+                                alt="profession icon"
+                            />
+                        ) : (
+                            <TeamOutlined style={{ marginRight: 4, fontSize: '1.5em', color: iconColor }} />
+                        )
+                    }
+                    color={isCurrentUser ? '#ebf5dc' : 'blue'}
+                    style={{
+                        margin: '2px',
+                        padding: '2px 6px',
+                        fontSize: '11px',
+                        borderRadius: '4px',
+                        color: isCurrentUser ? '#669126' : undefined,
+                        border: isCurrentUser ? '1px solid #669126' : undefined,
+                    }}
+                >
+                    {attendee}
+                </Tag>
+            );
+        };
 
         return (
             <div>
@@ -209,46 +319,66 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                 </Descriptions>
 
                 <h3 style={{ fontSize: '16px', margin: '12px 0 8px', color: '#1890ff' }}>參與者</h3>
-                <div
-                    style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        background: '#fff',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        border: '1px solid #e8e8e8',
-                    }}
-                >
-                    {updatedKillData.attendees && updatedKillData.attendees.length > 0 ? (
-                        updatedKillData.attendees.map((attendee, index) => {
-                            const isCurrentUser = currentUser && attendee === currentUser;
-                            return (
-                                <Tag
-                                    key={index}
-                                    icon={
-                                        isCurrentUser ? (
-                                            <CheckOutlined style={{ marginRight: 4, color: '#669126' }} />
+                <Segmented
+                    options={[
+                        { label: '按職業分組', value: 'grouped' },
+                        { label: '列表顯示', value: 'flat' },
+                    ]}
+                    value={displayMode}
+                    onChange={setDisplayMode}
+                    style={{ marginBottom: '12px' }}
+                />
+                <div style={{ background: '#fff', borderRadius: '6px', padding: '8px', border: '1px solid #e8e8e8' }}>
+                    {displayMode === 'grouped' ? (
+                        Object.keys(groupedAttendees).length > 0 ? (
+                            Object.entries(groupedAttendees).map(([profession, attendees]) => (
+                                <div key={profession} style={{ marginBottom: '12px' }}>
+                                    <h4 style={{ fontSize: '14px', margin: '8px 0', color: '#333', display: 'flex', alignItems: 'center' }}>
+                                        {profession !== '未知職業' && icons[professionToIcon[profession]] ? (
+                                            <img
+                                                src={icons[professionToIcon[profession]]}
+                                                style={{ width: '1.5em', height: '1.5em', marginRight: '8px', verticalAlign: 'middle' }}
+                                                alt={`${profession} icon`}
+                                            />
                                         ) : (
-                                            <TeamOutlined style={{ marginRight: 4, color: isCurrentUser ? '#fff' : '#1890ff' }} />
-                                        )
-                                    }
-                                    color={isCurrentUser ? '#ebf5dc' : 'blue'}
-                                    style={{
-                                        margin: '2px',
-                                        padding: '2px 6px',
-                                        fontSize: '11px',
-                                        borderRadius: '4px',
-                                        color: isCurrentUser ? '#669126' : undefined,
-                                        border: isCurrentUser ? '1px solid #669126' : undefined,
-                                    }}
-                                >
-                                    {attendee}
-                                </Tag>
-                            );
-                        })
+                                            <TeamOutlined style={{ fontSize: '1.5em', marginRight: '8px', color: '#1890ff' }} />
+                                        )}
+                                        {profession} ({attendees.length})
+                                    </h4>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            gap: '8px',
+                                            padding: '8px',
+                                            background: '#f9f9f9',
+                                            borderRadius: '4px',
+                                        }}
+                                    >
+                                        {attendees.map((attendee, index) => renderAttendeeTag(attendee, index))}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <Tag icon={<TeamOutlined style={{ fontSize: '1.5em' }} />} color="default">無參與者</Tag>
+                        )
                     ) : (
-                        <p style={{ margin: 0, fontSize: '11px' }}>無參與者</p>
+                        updatedKillData.attendees && updatedKillData.attendees.length > 0 ? (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                    padding: '8px',
+                                    background: '#f9f9f9',
+                                    borderRadius: '4px',
+                                }}
+                            >
+                                {updatedKillData.attendees.map((attendee, index) => renderAttendeeTag(attendee, index))}
+                            </div>
+                        ) : (
+                            <Tag icon={<TeamOutlined style={{ fontSize: '1.5em' }} />} color="default">無參與者</Tag>
+                        )
                     )}
                 </div>
 
@@ -257,11 +387,9 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                     updatedKillData.dropped_items.map((item, index) => {
                         const effectiveStatus = item.status ? item.status.toLowerCase() : 'pending';
                         const finalRecipient = item.final_recipient || updatedKillData.final_recipient || '未分配';
-
                         const itemApplications = applications.filter(app =>
                             (app.item_id.toString() === (item._id || item.id).toString())
                         );
-
                         return (
                             <div
                                 key={index}
@@ -303,10 +431,10 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                                             <Space direction="vertical">
                                                 {itemApplications.map(app => (
                                                     <div key={app._id}>
-                                                        <span>{app.user_id.character_name}</span>
+                                                        <span>{app.user_id?.character_name || '未知用戶'}</span>
                                                         {app.status === 'pending' && (
                                                             <Popconfirm
-                                                                title={`確認批准 ${app.user_id.character_name} 的申請？`}
+                                                                title={`確認批准 ${app.user_id?.character_name || '未知用戶'} 的申請？`}
                                                                 onConfirm={() => handleApproveApplication(app._id)}
                                                                 okText="是"
                                                                 cancelText="否"
@@ -500,6 +628,9 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                     padding: 2px 6px;
                     font-size: 11px;
                 }
+                .ant-segmented {
+                    margin-bottom: 12px;
+                }
                 @media (max-width: 768px) {
                     .ant-modal-body {
                         padding: 12px;
@@ -516,6 +647,16 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                     .ant-tag {
                         padding: 1px 4px;
                         font-size: 10px;
+                    }
+                    .ant-tag img {
+                        width: 1.2em;
+                        height: 1.2em;
+                    }
+                    .ant-tag .anticon {
+                        font-size: 1.2em;
+                    }
+                    .ant-segmented {
+                        font-size: 12px;
                     }
                     .ant-modal-content {
                         top: 5px;

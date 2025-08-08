@@ -137,48 +137,37 @@ const BossKillForm = () => {
         }
     };
 
-    const fetchUsers = async () => {
-        try {
-            let allUsers = [];
-            let page = 1;
-            let totalPages = 1;
+const fetchUsers = async () => {
+  try {
+    const res = await axiosInstance.get('/api/users', {
+      params: { noPagination: 'true' },
+    });
+    logger.info('API response:', { data: res.data });
 
-            while (page <= totalPages) {
-                const res = await axiosInstance.get('/api/users', {
-                    params: { page, pageSize: 50 },
-                });
+    if (!Array.isArray(res.data.data)) {
+      throw new Error('後端返回的用戶數據格式不正確');
+    }
 
-                if (!Array.isArray(res.data.data)) {
-                    throw new Error('後端返回的用戶數據格式不正確');
-                }
-
-                allUsers = [...allUsers, ...res.data.data];
-                totalPages = Math.ceil(res.data.pagination.total / res.data.pagination.pageSize);
-                page++;
-            }
-
-            const allAttendees = allUsers.map(user => user.character_name);
-            const filteredItemHolders = allUsers
-                .filter(user => !user.roles.some(role => role.name === 'guild'))
-                .map(user => user.character_name);
-            const guildCaptain = allUsers.find(user => user.roles.some(role => role.name === 'admin'))?.character_name;
-
-            setUsers(allAttendees);
-            setUserOptions({
-                attendees: [
-                    { value: 'all', label: '選擇全部' },
-                    ...allAttendees.map(name => ({ value: name, label: name }))
-                ],
-                itemHolder: filteredItemHolders.map(name => ({ value: name, label: name })),
-                guildCaptain,
-            });
-            logger.info('Fetched users:', allAttendees);
-        } catch (err) {
-            message.error('載入用戶失敗: ' + err.message);
-            logger.error('Fetch users failed', { error: err.message, stack: err.stack });
-        }
-    };
-
+    const allUsers = res.data.data;
+    const allAttendees = allUsers.map(user => user.character_name);
+    setUsers(allAttendees);
+    setUserOptions({
+      attendees: [
+        { value: 'all', label: '選擇全部' },
+        ...allAttendees.map(name => ({ value: name, label: name }))
+      ],
+      itemHolder: allUsers
+        .filter(user => !user.roles.some(role => role.name === 'guild'))
+        .map(user => user.character_name)
+        .map(name => ({ value: name, label: name })),
+      guildCaptain: allUsers.find(user => user.roles.some(role => role.name === 'admin'))?.character_name,
+    });
+    logger.info('Fetched users:', allAttendees);
+  } catch (err) {
+    message.error(`載入用戶失敗：${err.message}。請檢查網絡或聯繫管理員。`);
+    logger.error('Fetch users failed', { error: err.message, stack: err.stack });
+  }
+};
     const compressionOptions = {
         maxSizeMB: 0.6,
         maxWidthOrHeight: 1024,

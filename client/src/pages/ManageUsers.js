@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, message, Select, Row, Col, Spin, Alert, Popconfirm, Pagination, Space, Card, Descriptions, Tag, Checkbox, Tabs, Typography } from 'antd';
+import { Table, Button, Modal, Form, Input, message, Select, Row, Col, Spin, Alert, Popconfirm, Space, Card, Descriptions, Tag, Checkbox, Tabs, Typography } from 'antd';
 import { SearchOutlined, StopOutlined, EditOutlined, InfoCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import formatNumber from '../utils/formatNumber';
@@ -27,8 +27,6 @@ const ManageUsers = () => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [form] = Form.useForm();
     const [broadcastForm] = Form.useForm();
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
     const [filters, setFilters] = useState({ search: '', status: 'all' });
     const [selectedRowKeys, setSelectedRowKeys] = useState([]);
     const [stats, setStats] = useState({ totalUsers: 0, activeUsers: 0 });
@@ -43,7 +41,6 @@ const ManageUsers = () => {
     const [suspiciousLogins, setSuspiciousLogins] = useState([]);
     const [suspiciousLoading, setSuspiciousLoading] = useState(false);
     const [userRole, setUserRole] = useState(null);
-    const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [sort, setSort] = useState({ field: 'createdAt', order: 'desc' });
 
     useEffect(() => {
@@ -146,7 +143,7 @@ const ManageUsers = () => {
         }
     };
 
-    const fetchUsers = useCallback(async (page = 1, size = 10) => {
+    const fetchUsers = useCallback(async () => {
         if (!online) {
             message.warning('目前處於離線模式，使用上次數據');
             return;
@@ -158,20 +155,17 @@ const ManageUsers = () => {
                 params: {
                     keyword: filters.search || undefined,
                     status: filters.status === 'all' ? undefined : filters.status,
-                    page,
-                    pageSize: size,
                     sortBy: sort.field,
                     sortOrder: sort.order,
+                    noPagination: true, // Request all users without pagination
                 },
             });
             if (res.data && Array.isArray(res.data.data)) {
                 setUsers(res.data.data);
                 setFilteredUsers(res.data.data);
-                setPagination(res.data.pagination || { current: page, pageSize: size, total: res.data.data.length });
             } else {
                 setUsers([]);
                 setFilteredUsers([]);
-                setPagination({ current: 1, pageSize: 10, total: 0 });
                 message.warning('API 返回數據格式不正確');
             }
         } catch (err) {
@@ -188,7 +182,6 @@ const ManageUsers = () => {
             }
             setUsers([]);
             setFilteredUsers([]);
-            setPagination({ current: 1, pageSize: 10, total: 0 });
         } finally {
             setLoading(false);
         }
@@ -196,24 +189,22 @@ const ManageUsers = () => {
 
     const handleFilterChange = (field, value) => {
         setFilters(prev => ({ ...prev, [field]: value }));
-        setPagination(prev => ({ ...prev, current: 1 }));
     };
 
-    const handleTableChange = (pagination, _, sorter) => {
-        setPagination(pagination);
+    const handleTableChange = (_, __, sorter) => {
         if (sorter.field && sorter.order) {
             setSort({
                 field: sorter.field,
                 order: sorter.order === 'ascend' ? 'asc' : 'desc',
             });
         }
-        fetchUsers(pagination.current, pagination.pageSize);
+        fetchUsers();
     };
 
     const handleSortChange = (value) => {
         const [field, order] = value.split('_');
         setSort({ field, order });
-        setPagination(prev => ({ ...prev, current: 1 }));
+        fetchUsers();
     };
 
     const fetchStats = useCallback(async () => {
@@ -243,16 +234,16 @@ const ManageUsers = () => {
     }, [token, online]);
 
     useEffect(() => {
-        fetchUsers(pagination.current, pagination.pageSize);
+        fetchUsers();
         fetchStats();
         fetchGrowthData();
         const interval = setInterval(() => {
-            fetchUsers(pagination.current, pagination.pageSize);
+            fetchUsers();
             fetchStats();
             fetchGrowthData();
         }, 60000);
         return () => clearInterval(interval);
-    }, [fetchUsers, fetchStats, fetchGrowthData, pagination.current, pagination.pageSize]);
+    }, [fetchUsers, fetchStats, fetchGrowthData]);
 
     const showModal = (user = null) => {
         if (!token) {
@@ -263,7 +254,7 @@ const ManageUsers = () => {
         setUseGuildPassword(false);
         form.resetFields();
         form.setFieldsValue({
-            world_name: user?.world_name || '',
+             world_name: process.env.WORLD_NAME || '修連05', 
             character_name: user?.character_name || '',
             discord_id: user?.discord_id || '',
             raid_level: user?.raid_level || 0,
@@ -339,7 +330,7 @@ const ManageUsers = () => {
             });
             message.success(`盟友${editingUser ? '更新' : '創建'}成功`);
             setIsModalVisible(false);
-            fetchUsers(pagination.current, pagination.pageSize);
+            fetchUsers();
         } catch (err) {
             if (err.response) {
                 message.error(`盟友${editingUser ? '更新' : '創建'}失敗: ${err.response.data?.msg || err.message}`);
@@ -370,7 +361,7 @@ const ManageUsers = () => {
                 headers: { 'x-auth-token': token },
             });
             message.success('盟友已設為 DISABLED 狀態');
-            fetchUsers(pagination.current, pagination.pageSize);
+            fetchUsers();
         } catch (err) {
             console.error('Disable user error:', {
                 status: err.response?.status,
@@ -404,7 +395,7 @@ const ManageUsers = () => {
                 headers: { 'x-auth-token': token },
             });
             message.success('批量設為 DISABLED 成功');
-            fetchUsers(pagination.current, pagination.pageSize);
+            fetchUsers();
             setSelectedRowKeys([]);
         } catch (err) {
             console.error('Batch disable error:', err);
@@ -626,11 +617,6 @@ const ManageUsers = () => {
         },
     ];
 
-    const handlePaginationChange = (page, size) => {
-        setPagination(prev => ({ ...prev, current: page, pageSize: size }));
-        fetchUsers(page, size);
-    };
-
     return (
         <div style={{ padding: '20px', backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
             <Card
@@ -659,18 +645,7 @@ const ManageUsers = () => {
                         </Card>
                     </Col>
                 </Row>
-                <Card title="盟友增長趨勢（過去 30 天）" bordered={false} style={{ marginBottom: '16px' }}>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <LineChart data={growthData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="_id" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Line type="monotone" dataKey="count" stroke="#1890ff" name="新增盟友數" />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </Card>
+              
             </Card>
 
             <Tabs defaultActiveKey="1">
@@ -684,7 +659,7 @@ const ManageUsers = () => {
                                 placeholder="搜索角色名稱或世界名稱"
                                 value={filters.search}
                                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                                onSearch={() => fetchUsers(pagination.current, pagination.pageSize)}
+                                onSearch={() => fetchUsers()}
                                 style={{ width: 200 }}
                                 enterButton={<SearchOutlined />}
                             />
@@ -692,7 +667,7 @@ const ManageUsers = () => {
                                 value={filters.status}
                                 onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
                                 style={{ width: 200 }}
-                                onSelect={() => fetchUsers(pagination.current, pagination.pageSize)}
+                                onSelect={() => fetchUsers()}
                             >
                                 <Option value="all">全部狀態</Option>
                                 <Option value="pending">待審核</Option>
@@ -717,7 +692,12 @@ const ManageUsers = () => {
                                         cancelText="否"
                                         disabled={loading || selectedRowKeys.length === 0 || !token}
                                     >
-                                      
+                                        <Button
+                                            type="danger"
+                                            disabled={loading || selectedRowKeys.length === 0 || !token}
+                                        >
+                                            批量設為 DISABLED
+                                        </Button>
                                     </Popconfirm>
                                 </>
                             )}
@@ -725,7 +705,7 @@ const ManageUsers = () => {
                                 type="default"
                                 icon={<SyncOutlined />}
                                 onClick={() => {
-                                    fetchUsers(pagination.current, pagination.pageSize);
+                                    fetchUsers();
                                     fetchStats();
                                     fetchGrowthData();
                                 }}
@@ -745,28 +725,15 @@ const ManageUsers = () => {
                                     style={{ marginBottom: '16px' }}
                                 />
                             ) : (
-                                <>
-                                    <Table
-                                        rowSelection={userRole?.includes('admin') ? rowSelection : undefined}
-                                        dataSource={filteredUsers}
-                                        columns={userColumns}
-                                        rowKey="_id"
-                                        bordered
-                                        pagination={false}
-                                        scroll={{ x: 'max-content' }}
-                                        onChange={handleTableChange}
-                                    />
-                                    <Pagination
-                                        current={pagination.current}
-                                        pageSize={pagination.pageSize}
-                                        total={pagination.total}
-                                        onChange={handlePaginationChange}
-                                        onShowSizeChange={handlePaginationChange}
-                                        style={{ marginTop: '16px', textAlign: 'right' }}
-                                        showSizeChanger
-                                        pageSizeOptions={['10', '20', '50']}
-                                    />
-                                </>
+                                <Table
+                                    rowSelection={userRole?.includes('admin') ? rowSelection : undefined}
+                                    dataSource={filteredUsers}
+                                    columns={userColumns}
+                                    rowKey="_id"
+                                    bordered
+                                    scroll={{ x: 'max-content' }}
+                                    onChange={handleTableChange}
+                                />
                             )}
                         </Spin>
                     </Card>
@@ -801,7 +768,6 @@ const ManageUsers = () => {
                                     columns={suspiciousColumns}
                                     rowKey="ipAddress"
                                     bordered
-                                    pagination={false}
                                     scroll={{ x: 'max-content' }}
                                 />
                             )}

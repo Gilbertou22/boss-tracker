@@ -251,11 +251,6 @@ router.get('/', auth, async (req, res) => {
             query.status = req.query.status;
         }
 
-        // 分頁
-        const page = parseInt(req.query.page) || 1;
-        const pageSize = parseInt(req.query.pageSize) || 10;
-        const skip = (page - 1) * pageSize;
-
         // 排序
         let sortObj = {};
         if (req.query.sortBy) {
@@ -264,30 +259,50 @@ router.get('/', auth, async (req, res) => {
             sortObj.createdAt = -1; // 預設降序
         }
 
-        const total = await User.countDocuments(query);
+        let users;
+        if (req.query.noPagination === 'true') {
+            // Return all users without pagination
+            users = await User.find(query)
+                .populate('guildId', 'name')
+                .populate('profession', 'name icon')
+                .populate('roles', 'name')
+                .select('world_name character_name discord_id raid_level diamonds status screenshot roles guildId mustChangePassword profession createdAt updatedAt combatPower')
+                .sort(sortObj);
+            res.json({
+                data: users,
+            });
+        } else {
+            // 分頁
+            const page = parseInt(req.query.page) || 1;
+            const pageSize = parseInt(req.query.pageSize) || 10;
+            const skip = (page - 1) * pageSize;
 
-        const users = await User.find(query)
-            .populate('guildId', 'name')
-            .populate('profession', 'name icon')
-            .populate('roles', 'name')
-            .select('world_name character_name discord_id raid_level diamonds status screenshot roles guildId mustChangePassword profession createdAt updatedAt combatPower')
-            .sort(sortObj)
-            .skip(skip)
-            .limit(pageSize);
+            const total = await User.countDocuments(query);
 
-        res.json({
-            data: users,
-            pagination: {
-                current: page,
-                pageSize,
-                total
-            }
-        });
+            users = await User.find(query)
+                .populate('guildId', 'name')
+                .populate('profession', 'name icon')
+                .populate('roles', 'name')
+                .select('world_name character_name discord_id raid_level diamonds status screenshot roles guildId mustChangePassword profession createdAt updatedAt combatPower')
+                .sort(sortObj)
+                .skip(skip)
+                .limit(pageSize);
+
+            res.json({
+                data: users,
+                pagination: {
+                    current: page,
+                    pageSize,
+                    total
+                }
+            });
+        }
     } catch (err) {
         logger.error('Error fetching users:', err.message);
         res.status(500).json({ msg: '獲取用戶列表失敗', error: err.message });
     }
 });
+
 
 // 獲取用戶個人資料
 router.get('/profile', auth, async (req, res) => {
