@@ -92,7 +92,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
     }, [editing]);
 
     const userMap = useMemo(() => {
-        console.log('Mapping all users to userMap:', allUsers);
+      
         if (!Array.isArray(allUsers)) {
             console.warn('allUsers is not an array:', allUsers);
             return {};
@@ -105,7 +105,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             }
             return acc;
         }, {});
-        console.log('Created userMap:', map);
+      
         return map;
     }, [allUsers]);
 
@@ -114,7 +114,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.get(`${BASE_URL}/api/users/me`, {
                 headers: { 'x-auth-token': token },
             });
-            console.log('Current user data:', res.data);
+           
             setCurrentUser(res.data.character_name);
             setRole(res.data.role);
         } catch (err) {
@@ -128,7 +128,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.get(`${BASE_URL}/api/boss-kills/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
-            console.log('Kill data:', res.data);
+         
             const detail = res.data;
             detail.screenshots = detail.screenshots
                 ? detail.screenshots.map(src => (src ? `${BASE_URL}/${src.replace('./', '')}` : ''))
@@ -145,7 +145,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.get(`${BASE_URL}/api/applications/by-kill/${killId}`, {
                 headers: { 'x-auth-token': token },
             });
-            console.log('Applications data:', res.data);
+         
             setApplications(res.data || []);
         } catch (err) {
             console.error('Error fetching applications:', err.response?.data || err);
@@ -159,9 +159,9 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.get(`${BASE_URL}/api/users?noPagination=true`, {
                 headers: { 'x-auth-token': token },
             });
-            console.log('Raw API response:', res);
+      
             const users = Array.isArray(res.data.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
-            console.log('Fetched users:', users);
+        
             setAllUsers(users);
         } catch (err) {
             console.error('Error fetching all users:', err.response?.data || err);
@@ -194,7 +194,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
                     'Content-Type': 'multipart/form-data',
                 },
             });
-            console.log('Update response:', res.data);
+       
             message.success(res.data.msg || '更新成功！');
             onUpdate();
         } catch (err) {
@@ -219,7 +219,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             const res = await axiosInstance.post(`${BASE_URL}/api/applications/${applicationId}/approve`, {}, {
                 headers: { 'x-auth-token': token },
             });
-            console.log('Approve application response:', res.data);
+      
             message.success(res.data.msg);
             fetchKillData(updatedKillData._id);
             fetchApplications(updatedKillData._id);
@@ -237,7 +237,7 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
             return null;
         }
 
-        console.log('Kill data attendees:', updatedKillData.attendees);
+      
 
         // Group attendees by profession for grouped view
         const groupedAttendees = updatedKillData.attendees?.reduce((acc, attendee) => {
@@ -253,11 +253,10 @@ const KillDetailModal = ({ visible, onCancel, killData, onUpdate, token, initial
         // Render individual attendee tag
         const renderAttendeeTag = (attendee, index) => {
             const isCurrentUser = currentUser && attendee === currentUser;
-            console.log('Attendee:', attendee, 'isCurrentUser:', isCurrentUser);
-            console.log('User Map:', userMap);
+           
             const user = userMap[attendee] || null;
             const professionName = user?.profession?.name || null;
-            console.log('User:', user, 'Profession:', professionName);
+      
             const iconKey = professionName ? professionToIcon[professionName] : null;
             const IconSrc = iconKey ? icons[iconKey] : null;
             const iconColor = isCurrentUser ? '#669126' : '#1890ff';

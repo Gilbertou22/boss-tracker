@@ -194,8 +194,7 @@ router.post('/', auth, async (req, res) => {
 // 批准申請
 router.post('/:id/approve', auth, adminOnly, async (req, res) => {
     const { id } = req.params;
-    console.log('Approving application with ID:', id);
-    console.log('User:', req.user);
+  
     try {
         // 查找申請記錄
         const application = await Application.findById(id)
@@ -277,7 +276,7 @@ router.post('/:id/approve', auth, adminOnly, async (req, res) => {
                 if (channel) {
                     const formattedMessage = `<@${userDiscordId}> 恭喜獲得 ${application.item_name}！`;
                     await channel.send(formattedMessage);
-                    console.log(`Discord message sent to channel ${channelId} for user ${userDiscordId}`);
+               
                 } else {
                     console.error(`Channel ${channelId} not found.`);
                 }

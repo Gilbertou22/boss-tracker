@@ -20,9 +20,21 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 const upload = multer({
     storage: multer.diskStorage({
         destination: './Uploads/',
-        filename: (req, file, cb) => cb(null, `${ Date.now() } -${ file.originalname } `),
+        filename: (req, file, cb) => {
+            const sanitizedName = file.originalname.replace(/\s+/g, '_');
+            const filename = `${Date.now()}-${sanitizedName}`;
+            console.log(`Saving file: ${filename}`);
+            cb(null, filename);
+        },
     }),
     limits: { fileSize: 600 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+            cb(null, true);
+        } else {
+            cb(new Error('僅支援 JPEG/PNG 圖片'), false);
+        }
+    },
 });
 
 // Get attendance stats for a guild (past 2 weeks)
@@ -93,7 +105,7 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
 
     try {
         const screenshot = req.file ? req.file.path : '/wp.jpg';
-
+        console.log('Received file:', req.file);
         const boss = await Boss.findById(bossId);
         if (!boss) {
             return res.status(404).json({

@@ -252,14 +252,23 @@ const fetchUsers = async () => {
                 setPasteImageLoading(false);
                 return;
             }
-            const newFile = {
-                uid: `paste - ${ Date.now() } `,
-                name: `pasted - image - ${ Date.now() }.${ file.type.split('/')[1] } `,
-                status: 'done',
-                originFileObj: compressedFile,
-            };
-            setFileList([...fileList, newFile]);
-            message.success('圖片貼上成功');
+            const fileExtension = file.type.split('/')[1]; // e.g., 'png'
+    const fileName = `pasted-image-${Date.now()}.${fileExtension}`;
+
+    if (compressedFile.size / 1024 > 600) {
+        message.error('貼上的圖片壓縮後仍超過 600KB，請選擇較小的圖片');
+        setPasteImageLoading(false);
+        return;
+    }
+    const newFile = {
+        uid: `paste-${Date.now()}`,
+        name: fileName,
+        status: 'done',
+        originFileObj: new File([compressedFile], fileName, { type: file.type }),
+    };
+  
+    setFileList([...fileList, newFile]);
+    message.success('圖片貼上成功');
         } catch (err) {
             message.error('處理貼上圖片失敗，請重試');
             logger.error('Paste image failed', { error: err.message, stack: err.stack });
@@ -475,8 +484,10 @@ const fetchUsers = async () => {
         const itemNames = values.item_names || [];
         const batchId = uuidv4(); // Generate a unique batch ID for this submission
 
+
         try {
             const formDataArray = [];
+
             for (let i = 0; i < itemNames.length; i++) {
                 const item = itemNames[i];
                 const selectedItem = items.find(i => i.name === item.name);
