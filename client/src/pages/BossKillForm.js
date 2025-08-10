@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Upload, Select, message, DatePicker, Input, Row, Col, Alert, Spin, Card, Space, Typography, Modal, Tag, List } from 'antd';
+import { Form, Button, Upload, Select, message, DatePicker, Input, Row, Col, Alert, Spin, Card, Space, Typography, Modal, Tag, List, Switch } from 'antd';
 import { UploadOutlined, UserOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import axiosInstance from '../utils/axiosInstance';
 import moment from 'moment';
@@ -63,7 +63,7 @@ const BossKillForm = () => {
         fetchItems();
         fetchUsers();
         fetchItemLevels();
-        form.setFieldsValue({ kill_time: null });
+        form.setFieldsValue({ kill_time: null, sendDiscordMessage: false }); // Default to false
 
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
@@ -509,6 +509,8 @@ const fetchUsers = async () => {
                 formData.append('itemHolder', values.itemHolder || '');
                 formData.append('logText', logText);
                 formData.append('batchId', batchId); // Add batchId to group records
+                formData.append('sendDiscordMessage', formValues.sendDiscordMessage); // Add new field
+
 
                 // Attach the corresponding screenshot or default image
                 if (fileList[i]) {
@@ -681,9 +683,17 @@ const fetchUsers = async () => {
                         onFinish={onFinish}
                         layout="vertical"
                         style={{ maxWidth: '100%' }}
-                        initialValues={{ kill_time: null }}
+                        initialValues={{ kill_time: null,  sendDiscordMessage: false  }}
                         requiredMark={true}
                     >
+                        <Form.Item
+                            name="sendDiscordMessage"
+                            label="發送 Discord 消息"
+                            valuePropName="checked"
+                            style={{ marginBottom: 16 }}
+                        >
+                            <Switch defaultChecked />
+                        </Form.Item>
                         <Form.Item
                             label={
                                 <span>

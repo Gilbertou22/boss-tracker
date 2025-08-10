@@ -101,7 +101,7 @@ router.get('/attendance/:guildId', auth, async (req, res) => {
 
 // Create boss kill record
 router.post('/', auth, upload.single('screenshot'), async (req, res) => {
-    const { bossId, kill_time, dropped_items, attendees, final_recipient, status, apply_deadline_days, itemHolder, logText, batchId } = req.body;
+    const { bossId, kill_time, dropped_items, attendees, final_recipient, status, apply_deadline_days, itemHolder, logText, batchId, sendDiscordMessage } = req.body;
 
     try {
         const screenshot = req.file ? req.file.path : '/wp.jpg';
@@ -169,11 +169,13 @@ router.post('/', auth, upload.single('screenshot'), async (req, res) => {
             userId: req.user.id,
             itemHolder: itemHolder || null,
             batchId: batchId || null,
+            sendDiscordMessage: sendDiscordMessage === 'true' || sendDiscordMessage === true,
         });
         await bossKill.save();
-
+        console.log('send Discord message:', sendDiscordMessage);
         // Check for other records in the same batch and send Discord message if this is the last one
-        if (logText && process.env.SEND_DISCORD_MESSAGE === 'true' && batchId) {
+        //if (logText && process.env.SEND_DISCORD_MESSAGE === 'true' && batchId) {
+         if (logText && (sendDiscordMessage === 'true' || sendDiscordMessage === true) && batchId) {
             const batchKills = await BossKill.find({ batchId }).populate('bossId', 'name').lean();
             const discordClient = req.app.get('discordClient');
             const channelId = process.env.DISCORD_BOSS_KILL_CHANNEL_ID || '';
